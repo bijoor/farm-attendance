@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/* Graminno Brand Colors */
+:root {
+  --graminno-primary: #1B6B7C;
+  --graminno-primary-dark: #145561;
+  --graminno-primary-light: #2A8A9E;
+  --graminno-accent: #4ECDC4;
+  --graminno-success: #22C55E;
+  --graminno-warning: #F59E0B;
+  --graminno-error: #EF4444;
+}
+
+@theme {
+  --color-graminno: #1B6B7C;
+  --color-graminno-dark: #145561;
+  --color-graminno-light: #2A8A9E;
+  --color-graminno-50: #f0f9fa;
+  --color-graminno-100: #d9f0f2;
+  --color-graminno-200: #b6e2e6;
+  --color-graminno-300: #83cdd4;
+  --color-graminno-400: #4aafba;
+  --color-graminno-500: #2e939f;
+  --color-graminno-600: #1B6B7C;
+  --color-graminno-700: #1a5c6a;
+  --color-graminno-800: #1c4d58;
+  --color-graminno-900: #1b414b;
+  --color-graminno-950: #0b2830;
+}
+
+/* Base styles */
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: white;
+  }
+}
+
+.print-only {
+  display: none;
+}
+
+/* Attendance cell styles */
+.attendance-present {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.attendance-absent {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.attendance-half {
+  background-color: #fef3c7;
+  color: #92400e;
+}
