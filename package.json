@@ -3,14 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://yourusername.github.io/farm-attendance",
+  "homepage": "https://bijoor.github.io/farm-attendance",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist",
+    "deploy": "gh-pages -d docs",
     "server": "node server.js",
     "start": "npm run build && npm run server",
     "generate-icons": "node scripts/generate-icons.js"
