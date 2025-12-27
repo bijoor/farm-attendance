@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { getSyncUrl, setSyncUrl, pullData, pushData, checkServerStatus, hasDirtyFiles, clearAllDirtyFlags } from '../utils/sync';
 import Button from '../components/ui/Button';
-import { Loader2, Wifi, WifiOff, Play, Globe, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Wifi, WifiOff, Play, Globe, AlertCircle, RefreshCw, ChevronDown, ChevronUp, Download } from 'lucide-react';
+
+// PWA Install prompt interface
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +36,10 @@ const Home: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showSyncOptions, setShowSyncOptions] = useState(false);
 
+  // PWA Install state
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
   // Check for unsaved changes on mount
   useEffect(() => {
     setPendingChanges(hasDirtyFiles());
@@ -38,6 +48,42 @@ const Home: React.FC = () => {
       setShowSyncOptions(true);
     }
   }, []);
+
+  // Capture the PWA install prompt
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    };
+
+    // Check if already installed (standalone mode)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstalled(true);
+    }
+    setInstallPrompt(null);
+  };
 
   const handleCheckConnection = async () => {
     if (!syncUrl) {
@@ -284,6 +330,34 @@ const Home: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Install App Button - Show if not installed */}
+        {!isInstalled && (
+          <div className="border-t border-slate-200 pt-4 mt-4">
+            {installPrompt ? (
+              <button
+                onClick={handleInstallClick}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+              >
+                <Download size={18} />
+                <span className="font-medium">
+                  {isMarathi ? 'अॅप इन्स्टॉल करा' : 'Install App'}
+                </span>
+              </button>
+            ) : (
+              <div className="text-center">
+                <p className="text-xs text-slate-500 mb-2">
+                  {isMarathi ? 'होम स्क्रीनवर जोडण्यासाठी:' : 'To add to home screen:'}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {isMarathi
+                    ? 'iOS: Share → Add to Home | Android: Menu → Install'
+                    : 'iOS: Share → Add to Home | Android: Menu → Install'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
