@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { getSyncUrl, setSyncUrl, pullData, pushData, checkServerStatus, hasDirtyFiles } from '../utils/sync';
+import { getSyncUrl, setSyncUrl, pullData, pushData, checkServerStatus, hasDirtyFiles, clearAllDirtyFlags } from '../utils/sync';
 import Button from '../components/ui/Button';
 import { Loader2, Wifi, WifiOff, Play, Globe, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -111,11 +111,15 @@ const Home: React.FC = () => {
       if (result.success && result.data) {
         const importSuccess = importData(JSON.stringify(result.data));
         if (importSuccess) {
+          // Clear dirty flags after importing synced data
+          clearAllDirtyFlags();
           navigate(defaultPath);
         } else {
           setError(isMarathi ? 'डेटा लोड अयशस्वी' : 'Failed to load data');
         }
       } else if (result.success) {
+        // No data on server, just clear flags and proceed
+        clearAllDirtyFlags();
         navigate(defaultPath);
       } else {
         setError(result.message);

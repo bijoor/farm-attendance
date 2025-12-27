@@ -122,6 +122,20 @@ export function hasDirtyFiles(): boolean {
   return false;
 }
 
+export function clearAllDirtyFlags(): void {
+  const status = getSyncStatus();
+  const now = new Date().toISOString();
+  status.workers = { ...status.workers, dirty: false, lastSynced: now };
+  status.areas = { ...status.areas, dirty: false, lastSynced: now };
+  status.activities = { ...status.activities, dirty: false, lastSynced: now };
+  status.groups = { ...status.groups, dirty: false, lastSynced: now };
+  status.lastFullSync = now;
+  for (const month of Object.keys(status.months)) {
+    status.months[month] = { ...status.months[month], dirty: false, lastSynced: now };
+  }
+  saveSyncStatus(status);
+}
+
 export function getDirtyFiles(): string[] {
   const status = getSyncStatus();
   const dirty: string[] = [];

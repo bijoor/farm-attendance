@@ -6,7 +6,7 @@ import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
 import { exportToJson, shareViaWhatsApp, exportWorkersToExcel, exportAreasToExcel, exportActivitiesToExcel } from '../utils/exporters';
 import { importAppDataFromJson, importWorkersFromExcel, importAreasFromExcel, importActivitiesFromExcel } from '../utils/importers';
-import { getSyncUrl, setSyncUrl, checkServerStatus, syncData, pullData, getLastSync, formatLastSync } from '../utils/sync';
+import { getSyncUrl, setSyncUrl, checkServerStatus, syncData, pullData, getLastSync, formatLastSync, clearAllDirtyFlags } from '../utils/sync';
 import { Download, Upload, Share2, FileSpreadsheet, RefreshCw, AlertTriangle, Cloud, CloudOff, Loader2, Smartphone, Check } from 'lucide-react';
 
 // PWA Install prompt interface
@@ -110,6 +110,8 @@ const Settings: React.FC = () => {
         // Import the merged data
         const importSuccess = importData(JSON.stringify(result.data));
         if (importSuccess) {
+          // Clear dirty flags after importing synced data (prevents useAutoSync from re-marking as dirty)
+          clearAllDirtyFlags();
           setImportStatus({ type: 'success', message: isMarathi ? 'सिंक यशस्वी! पेज रीलोड होत आहे...' : 'Sync completed! Reloading...' });
           // Reload page to ensure all components get the new data
           setTimeout(() => window.location.reload(), 1000);
@@ -139,6 +141,8 @@ const Settings: React.FC = () => {
       if (result.success && result.data) {
         const importSuccess = importData(JSON.stringify(result.data));
         if (importSuccess) {
+          // Clear dirty flags after importing synced data
+          clearAllDirtyFlags();
           setImportStatus({ type: 'success', message: isMarathi ? 'सर्व्हरवरून डेटा आणला! पेज रीलोड होत आहे...' : 'Data pulled from server! Reloading...' });
           setTimeout(() => window.location.reload(), 1000);
         } else {
