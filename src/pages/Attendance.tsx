@@ -333,13 +333,21 @@ const Attendance: React.FC = () => {
     })),
   ];
 
-  const getAreaOptions = () => [
-    { value: '', label: isMarathi ? '-- क्षेत्र निवडा --' : '-- Select Area --' },
-    ...data.areas.map(a => ({
-      value: a.code,
-      label: isMarathi && a.marathiName ? a.marathiName : `${a.code} - ${a.name}`,
-    })),
-  ];
+  // Get areas filtered by group - only show areas that belong to this group
+  const getAreaOptions = (groupId?: string) => {
+    const masterGroupId = groupId ? groups.find(g => g.id === groupId)?.groupId : undefined;
+    const filteredAreas = masterGroupId
+      ? data.areas.filter(a => a.groupId === masterGroupId)
+      : data.areas;
+
+    return [
+      { value: '', label: isMarathi ? '-- क्षेत्र निवडा --' : '-- Select Area --' },
+      ...filteredAreas.map(a => ({
+        value: a.code,
+        label: isMarathi && a.marathiName ? a.marathiName : `${a.code} - ${a.name}`,
+      })),
+    ];
+  };
 
   return (
     <div className="pb-20 lg:pb-0">
@@ -444,7 +452,7 @@ const Attendance: React.FC = () => {
                                   ))}
                                 </select>
                               </div>
-                              {/* Area selector - shows short name, dropdown has full names */}
+                              {/* Area selector - shows short name, dropdown has full names (filtered by group) */}
                               <div className="relative">
                                 <div className={`text-[10px] sm:text-xs font-semibold px-0.5 py-0.5 rounded cursor-pointer hover:bg-amber-100 ${areaCode ? 'text-amber-700 bg-amber-50' : 'text-slate-400'}`}>
                                   {areaDisplay || '·'}
@@ -455,7 +463,7 @@ const Attendance: React.FC = () => {
                                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                   title={isMarathi ? 'क्षेत्र निवडा' : 'Select Area'}
                                 >
-                                  {getAreaOptions().map(opt => (
+                                  {getAreaOptions(group.id).map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                   ))}
                                 </select>

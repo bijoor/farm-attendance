@@ -17,6 +17,7 @@ export interface Area {
   name: string;           // English name
   marathiName?: string;   // Marathi name
   description?: string;
+  groupId?: string;       // Reference to the group/farm this area belongs to
 }
 
 // Activity types

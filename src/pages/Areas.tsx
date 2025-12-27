@@ -5,14 +5,20 @@ import PageHeader from '../components/layout/PageHeader';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
 import type { Area } from '../types';
 import { Plus, Pencil, Trash2, Search, Wand2 } from 'lucide-react';
 import { transliterateToMarathi, transliterateNumbers } from '../utils/transliteration';
 
 const Areas: React.FC = () => {
-  const { data, settings, addArea, updateArea, deleteArea } = useApp();
+  const { data, settings, addArea, updateArea, deleteArea, getGroupById } = useApp();
   const t = useTranslation(settings.language);
   const isMarathi = settings.language === 'mr';
+
+  // Get active groups for the dropdown
+  const activeGroups = (data.groups || [])
+    .filter(g => g.status === 'active')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingArea, setEditingArea] = useState<Area | null>(null);
@@ -25,6 +31,7 @@ const Areas: React.FC = () => {
     name: '',
     marathiName: '',
     description: '',
+    groupId: '',
   });
 
   // Get display name based on language
@@ -43,7 +50,7 @@ const Areas: React.FC = () => {
 
   const openAddModal = () => {
     setEditingArea(null);
-    setFormData({ code: '', marathiCode: '', name: '', marathiName: '', description: '' });
+    setFormData({ code: '', marathiCode: '', name: '', marathiName: '', description: '', groupId: '' });
     setIsModalOpen(true);
   };
 
@@ -55,6 +62,7 @@ const Areas: React.FC = () => {
       name: area.name,
       marathiName: area.marathiName || '',
       description: area.description || '',
+      groupId: area.groupId || '',
     });
     setIsModalOpen(true);
   };
@@ -76,12 +84,29 @@ const Areas: React.FC = () => {
     e.preventDefault();
     if (!formData.code.trim() || !formData.name.trim()) return;
 
+    // Convert empty groupId to undefined
+    const areaData = {
+      ...formData,
+      groupId: formData.groupId || undefined,
+    };
+
     if (editingArea) {
-      updateArea(editingArea.id, formData);
+      updateArea(editingArea.id, areaData);
     } else {
-      addArea(formData);
+      addArea(areaData);
     }
     setIsModalOpen(false);
+  };
+
+  // Helper to get group display name
+  const getGroupDisplayName = (groupId?: string) => {
+    if (!groupId) return null;
+    const group = getGroupById(groupId);
+    if (!group) return null;
+    if (isMarathi && group.marathiName) {
+      return group.marathiName;
+    }
+    return group.name;
   };
 
   const handleDelete = (area: Area) => {
@@ -125,10 +150,15 @@ const Areas: React.FC = () => {
             className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition-shadow"
           >
             <div className="flex items-start justify-between mb-2">
-              <div>
+              <div className="flex flex-col gap-1">
                 <span className="inline-flex px-2 py-1 bg-graminno-100 text-graminno-700 rounded font-mono text-sm font-medium">
                   {area.code}
                 </span>
+                {area.groupId && (
+                  <span className="inline-flex px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+                    {getGroupDisplayName(area.groupId)}
+                  </span>
+                )}
               </div>
               <div className="flex gap-1">
                 <button
@@ -237,6 +267,18 @@ const Areas: React.FC = () => {
             value={formData.description}
             onChange={e => setFormData({ ...formData, description: e.target.value })}
             placeholder="Optional description"
+          />
+          <Select
+            label={t('group')}
+            value={formData.groupId}
+            onChange={e => setFormData({ ...formData, groupId: e.target.value })}
+            options={[
+              { value: '', label: isMarathi ? '-- गट निवडा --' : '-- Select Group --' },
+              ...activeGroups.map(g => ({
+                value: g.id,
+                label: isMarathi && g.marathiName ? g.marathiName : g.name,
+              })),
+            ]}
           />
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1">
