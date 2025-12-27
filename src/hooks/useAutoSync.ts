@@ -126,5 +126,29 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
     saveToServer(data);
   }, [data, saveToServer]);
 
-  return { forceSave, hasDirtyFiles };
+  // Listen for online events to sync when back online
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleOnline = () => {
+      console.log('[AutoSync] Back online, syncing dirty files...');
+      if (hasDirtyFiles()) {
+        saveToServer(data);
+      }
+    };
+
+    // Listen to both native 'online' event and custom 'app-online' event
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('app-online', handleOnline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('app-online', handleOnline);
+    };
+  }, [enabled, data, saveToServer]);
+
+  // Track online status
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+  return { forceSave, hasDirtyFiles, isOnline };
 }

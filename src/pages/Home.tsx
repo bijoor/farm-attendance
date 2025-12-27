@@ -110,7 +110,7 @@ const Home: React.FC = () => {
       } else {
         setError(result.message);
       }
-    } catch (err) {
+    } catch {
       setError(isMarathi ? 'सत्र सुरू करण्यात अयशस्वी' : 'Failed to start session');
     } finally {
       setIsLoading(false);

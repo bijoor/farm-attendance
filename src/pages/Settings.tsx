@@ -69,7 +69,7 @@ const Settings: React.FC = () => {
       } else {
         setImportStatus({ type: 'error', message: result.message });
       }
-    } catch (error) {
+    } catch {
       setImportStatus({ type: 'error', message: isMarathi ? 'सिंक अयशस्वी' : 'Sync failed' });
     } finally {
       setIsSyncing(false);
@@ -99,7 +99,7 @@ const Settings: React.FC = () => {
       } else {
         setImportStatus({ type: 'error', message: result.message });
       }
-    } catch (error) {
+    } catch {
       setImportStatus({ type: 'error', message: isMarathi ? 'पुल अयशस्वी' : 'Pull failed' });
     } finally {
       setIsSyncing(false);
