@@ -35,28 +35,28 @@ const Dashboard: React.FC = () => {
       value: activeGroups,
       icon: Users2,
       color: 'bg-orange-500',
-      link: '/groups',
+      link: 'groups',
     },
     {
       label: t('workers'),
       value: activeWorkers,
       icon: Users,
       color: 'bg-blue-500',
-      link: '/workers',
+      link: 'workers',
     },
     {
       label: t('areas'),
       value: totalAreas,
       icon: MapPin,
       color: 'bg-green-500',
-      link: '/areas',
+      link: 'areas',
     },
     {
       label: `${t('totalCost')} (${format(new Date(), 'MMM')})`,
       value: formatCurrency(monthlyReport.totalCost),
       icon: TrendingUp,
       color: 'bg-graminno-600',
-      link: '/reports',
+      link: 'reports',
     },
   ];
 
@@ -91,7 +91,7 @@ const Dashboard: React.FC = () => {
         <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link
-            to="/attendance"
+            to="/"
             className="flex items-center justify-between p-4 bg-graminno-50 rounded-lg hover:bg-graminno-100 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -113,7 +113,7 @@ const Dashboard: React.FC = () => {
           </Link>
 
           <Link
-            to="/reports"
+            to="reports"
             className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -133,7 +133,7 @@ const Dashboard: React.FC = () => {
               {t('costByGroup')} - {format(new Date(), 'MMMM yyyy')}
             </h2>
             <Link
-              to="/reports"
+              to="reports"
               className="text-sm text-graminno-600 hover:text-graminno-700 font-medium"
             >
               {t('reports')} <ArrowRight size={14} className="inline ml-1" />
@@ -211,7 +211,7 @@ const Dashboard: React.FC = () => {
             </table>
           </div>
           <Link
-            to="/reports"
+            to="reports"
             className="mt-4 inline-flex items-center text-graminno-600 hover:text-graminno-700 font-medium"
           >
             View Full Report <ArrowRight size={16} className="ml-1" />

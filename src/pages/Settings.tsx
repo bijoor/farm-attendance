@@ -7,7 +7,13 @@ import Select from '../components/ui/Select';
 import { exportToJson, shareViaWhatsApp, exportWorkersToExcel, exportAreasToExcel, exportActivitiesToExcel } from '../utils/exporters';
 import { importAppDataFromJson, importWorkersFromExcel, importAreasFromExcel, importActivitiesFromExcel } from '../utils/importers';
 import { getSyncUrl, setSyncUrl, checkServerStatus, syncData, pullData, getLastSync, formatLastSync } from '../utils/sync';
-import { Download, Upload, Share2, FileSpreadsheet, RefreshCw, AlertTriangle, Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { Download, Upload, Share2, FileSpreadsheet, RefreshCw, AlertTriangle, Cloud, CloudOff, Loader2, Smartphone, Check } from 'lucide-react';
+
+// PWA Install prompt interface
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 const Settings: React.FC = () => {
   const { data, settings, setLanguage, importData, resetData, addWorker, addArea, addActivity } = useApp();
@@ -20,6 +26,50 @@ const Settings: React.FC = () => {
   const activitiesInputRef = useRef<HTMLInputElement>(null);
 
   const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // PWA Install state
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  // Capture the install prompt
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    };
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      setIsInstalled(true);
+      setImportStatus({ type: 'success', message: isMarathi ? 'अॅप इन्स्टॉल झाले!' : 'App installed!' });
+    }
+    setInstallPrompt(null);
+    setTimeout(() => setImportStatus(null), 3000);
+  };
 
   // Sync state
   const [syncUrl, setSyncUrlState] = useState(getSyncUrl() || '');
@@ -231,6 +281,69 @@ const Settings: React.FC = () => {
           ]}
           className="max-w-xs"
         />
+      </div>
+
+      {/* Install App */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Smartphone size={20} className="text-graminno-600" />
+          <h2 className="text-lg font-semibold text-slate-800">
+            {isMarathi ? 'अॅप इन्स्टॉल करा' : 'Install App'}
+          </h2>
+        </div>
+
+        {isInstalled ? (
+          <div className="flex items-center gap-2 text-green-600">
+            <Check size={20} />
+            <span>{isMarathi ? 'अॅप आधीच इन्स्टॉल झाले आहे!' : 'App is already installed!'}</span>
+          </div>
+        ) : installPrompt ? (
+          <div className="space-y-3">
+            <p className="text-slate-600 text-sm">
+              {isMarathi
+                ? 'होम स्क्रीनवर अॅप जोडा जलद प्रवेशासाठी.'
+                : 'Add this app to your home screen for quick access.'}
+            </p>
+            <Button onClick={handleInstallClick} className="flex items-center gap-2">
+              <Smartphone size={18} />
+              {isMarathi ? 'आता इन्स्टॉल करा' : 'Install Now'}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-slate-600 text-sm">
+              {isMarathi
+                ? 'होम स्क्रीनवर अॅप जोडण्यासाठी:'
+                : 'To add this app to your home screen:'}
+            </p>
+            <div className="bg-slate-50 rounded-lg p-4 text-sm space-y-2">
+              <div>
+                <span className="font-medium text-slate-700">iOS (Safari):</span>
+                <span className="text-slate-600">
+                  {isMarathi
+                    ? ' Share बटण → "Add to Home Screen"'
+                    : ' Tap Share → "Add to Home Screen"'}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700">Android (Chrome):</span>
+                <span className="text-slate-600">
+                  {isMarathi
+                    ? ' Menu (⋮) → "Add to Home screen"'
+                    : ' Menu (⋮) → "Add to Home screen"'}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-slate-700">Desktop:</span>
+                <span className="text-slate-600">
+                  {isMarathi
+                    ? ' Address bar मधील install आयकॉन क्लिक करा'
+                    : ' Click install icon in address bar'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* P2P Sync */}

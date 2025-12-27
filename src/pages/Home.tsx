@@ -10,6 +10,13 @@ const Home: React.FC = () => {
   const { data, importData, settings, setLanguage } = useApp();
   const isMarathi = settings.language === 'mr';
 
+  // Get first active group for default navigation
+  const activeGroups = (data.groups || [])
+    .filter(g => g.status === 'active')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const firstGroupId = activeGroups.length > 0 ? activeGroups[0].id : null;
+  const defaultPath = firstGroupId ? `/attendance/${firstGroupId}` : '/admin';
+
   const toggleLanguage = () => {
     setLanguage(isMarathi ? 'en' : 'mr');
   };
@@ -104,12 +111,12 @@ const Home: React.FC = () => {
       if (result.success && result.data) {
         const importSuccess = importData(JSON.stringify(result.data));
         if (importSuccess) {
-          navigate('/dashboard');
+          navigate(defaultPath);
         } else {
           setError(isMarathi ? 'डेटा लोड अयशस्वी' : 'Failed to load data');
         }
       } else if (result.success) {
-        navigate('/dashboard');
+        navigate(defaultPath);
       } else {
         setError(result.message);
       }
@@ -122,9 +129,9 @@ const Home: React.FC = () => {
   };
 
   const handleStartOffline = () => {
-    // Clear any error and proceed to dashboard
+    // Clear any error and proceed to attendance
     setError(null);
-    navigate('/dashboard');
+    navigate(defaultPath);
   };
 
   return (

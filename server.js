@@ -163,6 +163,7 @@ app.get('/api/manifest', (req, res) => {
     workers: getFileTimestamp(join(DATA_DIR, 'workers.json')),
     areas: getFileTimestamp(join(DATA_DIR, 'areas.json')),
     activities: getFileTimestamp(join(DATA_DIR, 'activities.json')),
+    groups: getFileTimestamp(join(DATA_DIR, 'groups.json')),
     settings: getFileTimestamp(join(DATA_DIR, 'settings.json')),
     months: {},
   };
@@ -182,7 +183,7 @@ app.get('/api/manifest', (req, res) => {
 // Get specific master file
 app.get('/api/data/:type', (req, res) => {
   const { type } = req.params;
-  const validTypes = ['workers', 'areas', 'activities', 'settings'];
+  const validTypes = ['workers', 'areas', 'activities', 'groups', 'settings'];
 
   if (!validTypes.includes(type)) {
     return res.status(400).json({ success: false, error: 'Invalid data type' });
@@ -197,7 +198,7 @@ app.get('/api/data/:type', (req, res) => {
 // Update specific master file
 app.post('/api/data/:type', (req, res) => {
   const { type } = req.params;
-  const validTypes = ['workers', 'areas', 'activities', 'settings'];
+  const validTypes = ['workers', 'areas', 'activities', 'groups', 'settings'];
 
   if (!validTypes.includes(type)) {
     return res.status(400).json({ success: false, error: 'Invalid data type' });
@@ -250,6 +251,7 @@ app.get('/api/data', (req, res) => {
   const workers = loadFile(join(DATA_DIR, 'workers.json'));
   const areas = loadFile(join(DATA_DIR, 'areas.json'));
   const activities = loadFile(join(DATA_DIR, 'activities.json'));
+  const groups = loadFile(join(DATA_DIR, 'groups.json'));
   const settings = loadFile(join(DATA_DIR, 'settings.json'));
 
   // Load all months
@@ -268,6 +270,7 @@ app.get('/api/data', (req, res) => {
     workers: workers?.items || [],
     areas: areas?.items || [],
     activities: activities?.items || [],
+    groups: groups?.items || [],
     months,
     version: settings?.version || '1.0.0',
     lastSyncedAt: new Date().toISOString(),
@@ -298,6 +301,11 @@ app.post('/api/data', (req, res) => {
   const localActivities = loadFile(join(DATA_DIR, 'activities.json'));
   const mergedActivities = mergeArray(localActivities?.items || [], remoteData.activities || [], 'id');
   saveFile(join(DATA_DIR, 'activities.json'), { items: mergedActivities, lastModified: new Date().toISOString() });
+
+  // Merge groups
+  const localGroups = loadFile(join(DATA_DIR, 'groups.json'));
+  const mergedGroups = mergeArray(localGroups?.items || [], remoteData.groups || [], 'id');
+  saveFile(join(DATA_DIR, 'groups.json'), { items: mergedGroups, lastModified: new Date().toISOString() });
 
   // Merge months
   const mergedMonths = [];
@@ -338,6 +346,7 @@ app.post('/api/data', (req, res) => {
     workers: mergedWorkers,
     areas: mergedAreas,
     activities: mergedActivities,
+    groups: mergedGroups,
     months: mergedMonths,
     version: remoteData.version || '1.0.0',
     lastSyncedAt: new Date().toISOString(),
@@ -378,6 +387,7 @@ app.listen(PORT, () => {
 ║    - workers.json                                         ║
 ║    - areas.json                                           ║
 ║    - activities.json                                      ║
+║    - groups.json                                          ║
 ║    - months/*.json                                        ║
 ║                                                           ║
 ║  To expose via Tailscale Funnel:                          ║

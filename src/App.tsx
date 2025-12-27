@@ -1,13 +1,14 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
-import Layout from './components/layout/Layout';
+import AttendanceLayout from './components/layout/AttendanceLayout';
+import AdminLayout from './components/layout/AdminLayout';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Workers from './pages/Workers';
 import Groups from './pages/Groups';
 import Areas from './pages/Areas';
 import Activities from './pages/Activities';
-import Attendance from './pages/Attendance';
+import GroupAttendance from './pages/GroupAttendance';
 import Print from './pages/Print';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
@@ -20,15 +21,20 @@ function App() {
           {/* Home/Landing page */}
           <Route path="/" element={<Home />} />
 
-          {/* Main app with layout */}
-          <Route element={<Layout />}>
-            <Route path="dashboard" element={<Dashboard />} />
+          {/* Public attendance interface */}
+          <Route element={<AttendanceLayout />}>
+            <Route path="attendance" element={<Navigate to="/" replace />} />
+            <Route path="attendance/:groupId" element={<GroupAttendance />} />
+            <Route path="print" element={<Print />} />
+          </Route>
+
+          {/* Admin interface (hidden URL) */}
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={<Dashboard />} />
             <Route path="workers" element={<Workers />} />
             <Route path="groups" element={<Groups />} />
             <Route path="areas" element={<Areas />} />
             <Route path="activities" element={<Activities />} />
-            <Route path="attendance" element={<Attendance />} />
-            <Route path="print" element={<Print />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
           </Route>
