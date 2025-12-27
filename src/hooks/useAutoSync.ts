@@ -22,6 +22,7 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
   const prevWorkersRef = useRef<string>('');
   const prevAreasRef = useRef<string>('');
   const prevActivitiesRef = useRef<string>('');
+  const prevGroupsRef = useRef<string>('');
   const prevMonthsRef = useRef<{ [key: string]: string }>({});
 
   const saveToServer = useCallback(async (dataToSave: AppData) => {
@@ -62,6 +63,7 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
     const workersStr = JSON.stringify(data.workers);
     const areasStr = JSON.stringify(data.areas);
     const activitiesStr = JSON.stringify(data.activities);
+    const groupsStr = JSON.stringify(data.groups || []);
 
     let hasChanges = false;
 
@@ -85,6 +87,13 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
       hasChanges = true;
     }
     prevActivitiesRef.current = activitiesStr;
+
+    // Check groups
+    if (groupsStr !== prevGroupsRef.current && prevGroupsRef.current !== '') {
+      markFileDirty('groups');
+      hasChanges = true;
+    }
+    prevGroupsRef.current = groupsStr;
 
     // Check each month
     for (const month of data.months) {
