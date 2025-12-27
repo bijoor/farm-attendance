@@ -158,10 +158,17 @@ export const generatePrintableSheet = (
   monthStr: string,
   workers: Worker[],
   areas: Area[],
-  activities: Activity[]
+  activities: Activity[],
+  isMarathi: boolean = false
 ): string => {
   const days = getDaysArrayForMonth(monthStr);
   const activeWorkers = workers.filter(w => w.status === 'active');
+
+  // Helper to get display name based on language
+  const getWorkerName = (worker: Worker) => {
+    if (isMarathi && worker.marathiName) return worker.marathiName;
+    return worker.name;
+  };
 
   const html = `
     <!DOCTYPE html>
@@ -189,7 +196,7 @@ export const generatePrintableSheet = (
         }
         th, td {
           border: 1px solid #333;
-          padding: 3px;
+          padding: 4px 3px;
           text-align: center;
         }
         th {
@@ -197,16 +204,25 @@ export const generatePrintableSheet = (
         }
         .name-col {
           text-align: left;
-          min-width: 100px;
+          min-width: 120px;
         }
         .day-col {
-          width: 20px;
-        }
-        .total-col {
-          width: 50px;
+          width: 22px;
+          min-width: 22px;
         }
         .activity-row {
-          background-color: #fff9e6;
+          background-color: #e8f5e9;
+          height: 28px;
+        }
+        .activity-row td {
+          height: 28px;
+        }
+        .area-row {
+          background-color: #fff8e1;
+          height: 28px;
+        }
+        .area-row td {
+          height: 28px;
         }
         .footer {
           margin-top: 20px;
@@ -218,27 +234,30 @@ export const generatePrintableSheet = (
       </style>
     </head>
     <body>
-      <h1>ग्रामीनो हजेरी - ${formatMonthYear(monthStr)}</h1>
+      <h1>${isMarathi ? 'ग्रामीनो हजेरी' : 'Graminno Attendance'} - ${formatMonthYear(monthStr)}</h1>
       <div class="legend">
-        <strong>Legend:</strong> P = Present (हजर), A = Absent (गैरहजर), H = Half Day (अर्धा दिवस)
+        <strong>${isMarathi ? 'चिन्हे:' : 'Legend:'}</strong> P = ${isMarathi ? 'हजर' : 'Present'}, A = ${isMarathi ? 'गैरहजर' : 'Absent'}, H = ${isMarathi ? 'अर्धा दिवस' : 'Half Day'}
       </div>
       <table>
         <thead>
           <tr>
-            <th>क्र.</th>
-            <th class="name-col">कामगार नाव</th>
-            <th>दर</th>
+            <th>${isMarathi ? 'क्र.' : 'Sr.'}</th>
+            <th class="name-col">${isMarathi ? 'कामगार नाव' : 'Worker Name'}</th>
             ${days.map(d => `<th class="day-col">${d}</th>`).join('')}
-            <th>दिवस</th>
-            <th class="total-col">एकूण</th>
-            <th>सही</th>
+            <th>${isMarathi ? 'दिवस' : 'Days'}</th>
+            <th>${isMarathi ? 'सही' : 'Sign'}</th>
           </tr>
           <tr class="activity-row">
             <td></td>
-            <td class="name-col">काम/क्षेत्र</td>
-            <td></td>
+            <td class="name-col" style="font-weight: bold; color: #2e7d32;">${isMarathi ? 'काम' : 'Activity'}</td>
             ${days.map(() => `<td class="day-col"></td>`).join('')}
             <td></td>
+            <td></td>
+          </tr>
+          <tr class="area-row">
+            <td></td>
+            <td class="name-col" style="font-weight: bold; color: #f57c00;">${isMarathi ? 'क्षेत्र' : 'Area'}</td>
+            ${days.map(() => `<td class="day-col"></td>`).join('')}
             <td></td>
             <td></td>
           </tr>
@@ -247,10 +266,8 @@ export const generatePrintableSheet = (
           ${activeWorkers.map((worker, idx) => `
             <tr>
               <td>${idx + 1}</td>
-              <td class="name-col">${worker.name}</td>
-              <td>${worker.dailyRate}</td>
+              <td class="name-col">${getWorkerName(worker)}</td>
               ${days.map(() => `<td class="day-col"></td>`).join('')}
-              <td></td>
               <td></td>
               <td></td>
             </tr>
@@ -258,8 +275,16 @@ export const generatePrintableSheet = (
         </tbody>
       </table>
       <div class="footer">
-        <p><strong>Activities / कामे:</strong> ${activities.map(a => `${a.code} = ${a.name} (${a.marathiName || ''})`).join(', ')}</p>
-        <p><strong>Areas / क्षेत्रे:</strong> ${areas.map(a => `${a.code} = ${a.name}`).join(', ')}</p>
+        <p><strong>${isMarathi ? 'कामे:' : 'Activities:'}</strong> ${activities.map(a =>
+          isMarathi
+            ? `${a.marathiCode || a.code} = ${a.marathiName || a.name}`
+            : `${a.code} = ${a.name}`
+        ).join(', ')}</p>
+        <p><strong>${isMarathi ? 'क्षेत्रे:' : 'Areas:'}</strong> ${areas.map(a =>
+          isMarathi
+            ? `${a.marathiCode || a.code} = ${a.marathiName || a.name}`
+            : `${a.code} = ${a.name}`
+        ).join(', ')}</p>
       </div>
     </body>
     </html>

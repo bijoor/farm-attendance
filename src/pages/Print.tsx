@@ -12,8 +12,15 @@ import { Printer, FileSpreadsheet } from 'lucide-react';
 const Print: React.FC = () => {
   const { data, settings, getMonthData } = useApp();
   const t = useTranslation(settings.language);
+  const isMarathi = settings.language === 'mr';
 
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+
+  // Get display name based on language
+  const getWorkerDisplayName = (worker: { name: string; marathiName?: string }) => {
+    if (isMarathi && worker.marathiName) return worker.marathiName;
+    return worker.name;
+  };
 
   // Generate month options
   const monthOptions = useMemo(() => {
@@ -33,7 +40,7 @@ const Print: React.FC = () => {
   const monthData = getMonthData(selectedMonth);
 
   const handlePrint = () => {
-    const html = generatePrintableSheet(selectedMonth, data.workers, data.areas, data.activities);
+    const html = generatePrintableSheet(selectedMonth, data.workers, data.areas, data.activities, isMarathi);
     printSheet(html);
   };
 
@@ -91,47 +98,52 @@ const Print: React.FC = () => {
 
             {/* Legend */}
             <div className="mb-4 text-xs text-slate-600">
-              <strong>Legend:</strong> P = Present (हजर), A = Absent (गैरहजर), H = Half Day (अर्धा दिवस)
+              <strong>{isMarathi ? 'चिन्हे:' : 'Legend:'}</strong> P = {isMarathi ? 'हजर (Present)' : 'Present (हजर)'}, A = {isMarathi ? 'गैरहजर (Absent)' : 'Absent (गैरहजर)'}, H = {isMarathi ? 'अर्धा दिवस (Half Day)' : 'Half Day (अर्धा दिवस)'}
             </div>
 
             {/* Table */}
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-100">
-                  <th className="border border-slate-300 py-2 px-2 text-left">क्र.</th>
-                  <th className="border border-slate-300 py-2 px-2 text-left min-w-[120px]">कामगार नाव</th>
-                  <th className="border border-slate-300 py-2 px-2 text-center">दर</th>
+                  <th className="border border-slate-300 py-2 px-2 text-left">{isMarathi ? 'क्र.' : 'Sr.'}</th>
+                  <th className="border border-slate-300 py-2 px-2 text-left min-w-[120px]">{isMarathi ? 'कामगार नाव' : 'Worker Name'}</th>
                   {days.map(day => (
                     <th key={day} className="border border-slate-300 py-2 px-1 text-center w-6">
                       {day}
                     </th>
                   ))}
-                  <th className="border border-slate-300 py-2 px-2 text-center">दिवस</th>
-                  <th className="border border-slate-300 py-2 px-2 text-center">एकूण</th>
-                  <th className="border border-slate-300 py-2 px-2 text-center min-w-[60px]">सही</th>
+                  <th className="border border-slate-300 py-2 px-2 text-center">{isMarathi ? 'दिवस' : 'Days'}</th>
+                  <th className="border border-slate-300 py-2 px-2 text-center min-w-[60px]">{isMarathi ? 'सही' : 'Sign'}</th>
                 </tr>
-                <tr className="bg-yellow-50">
-                  <td className="border border-slate-300 py-1 px-2"></td>
-                  <td className="border border-slate-300 py-1 px-2 text-xs text-yellow-700">काम/क्षेत्र</td>
-                  <td className="border border-slate-300 py-1 px-2"></td>
+                {/* Activity row - taller for manual writing */}
+                <tr className="bg-green-50">
+                  <td className="border border-slate-300 py-3 px-2"></td>
+                  <td className="border border-slate-300 py-3 px-2 text-xs text-green-700 font-medium">{isMarathi ? 'काम' : 'Activity'}</td>
                   {days.map(day => (
-                    <td key={day} className="border border-slate-300 py-1 px-1 text-center"></td>
+                    <td key={day} className="border border-slate-300 py-3 px-1 text-center h-8"></td>
                   ))}
-                  <td className="border border-slate-300 py-1 px-2"></td>
-                  <td className="border border-slate-300 py-1 px-2"></td>
-                  <td className="border border-slate-300 py-1 px-2"></td>
+                  <td className="border border-slate-300 py-3 px-2"></td>
+                  <td className="border border-slate-300 py-3 px-2"></td>
+                </tr>
+                {/* Area row - taller for manual writing */}
+                <tr className="bg-amber-50">
+                  <td className="border border-slate-300 py-3 px-2"></td>
+                  <td className="border border-slate-300 py-3 px-2 text-xs text-amber-700 font-medium">{isMarathi ? 'क्षेत्र' : 'Area'}</td>
+                  {days.map(day => (
+                    <td key={day} className="border border-slate-300 py-3 px-1 text-center h-8"></td>
+                  ))}
+                  <td className="border border-slate-300 py-3 px-2"></td>
+                  <td className="border border-slate-300 py-3 px-2"></td>
                 </tr>
               </thead>
               <tbody>
                 {activeWorkers.map((worker, idx) => (
                   <tr key={worker.id}>
                     <td className="border border-slate-300 py-2 px-2 text-center">{idx + 1}</td>
-                    <td className="border border-slate-300 py-2 px-2">{worker.name}</td>
-                    <td className="border border-slate-300 py-2 px-2 text-center">{worker.dailyRate}</td>
+                    <td className="border border-slate-300 py-2 px-2">{getWorkerDisplayName(worker)}</td>
                     {days.map(day => (
                       <td key={day} className="border border-slate-300 py-2 px-1 text-center"></td>
                     ))}
-                    <td className="border border-slate-300 py-2 px-2 text-center"></td>
                     <td className="border border-slate-300 py-2 px-2 text-center"></td>
                     <td className="border border-slate-300 py-2 px-2"></td>
                   </tr>
@@ -142,12 +154,20 @@ const Print: React.FC = () => {
             {/* Footer */}
             <div className="mt-4 text-xs text-slate-600 space-y-1">
               <p>
-                <strong>कामे / Activities:</strong>{' '}
-                {data.activities.map(a => `${a.code} = ${a.name} (${a.marathiName || ''})`).join(', ')}
+                <strong>{isMarathi ? 'कामे:' : 'Activities:'}</strong>{' '}
+                {data.activities.map(a =>
+                  isMarathi
+                    ? `${a.marathiCode || a.code} = ${a.marathiName || a.name}`
+                    : `${a.code} = ${a.name}`
+                ).join(', ')}
               </p>
               <p>
-                <strong>क्षेत्रे / Areas:</strong>{' '}
-                {data.areas.map(a => `${a.code} = ${a.name}`).join(', ')}
+                <strong>{isMarathi ? 'क्षेत्रे:' : 'Areas:'}</strong>{' '}
+                {data.areas.map(a =>
+                  isMarathi
+                    ? `${a.marathiCode || a.code} = ${a.marathiName || a.name}`
+                    : `${a.code} = ${a.name}`
+                ).join(', ')}
               </p>
             </div>
           </div>
