@@ -345,15 +345,17 @@ const Home: React.FC = () => {
                 </span>
               </button>
             ) : (
-              <div className="text-center">
-                <p className="text-xs text-slate-500 mb-2">
-                  {isMarathi ? 'होम स्क्रीनवर जोडण्यासाठी:' : 'To add to home screen:'}
+              <div className="text-center text-xs text-slate-500">
+                <p className="mb-1 font-medium">
+                  {isMarathi ? 'अॅप इन्स्टॉल करा:' : 'Install this app:'}
                 </p>
-                <p className="text-xs text-slate-400">
-                  {isMarathi
-                    ? 'iOS: Share → Add to Home | Android: Menu → Install'
-                    : 'iOS: Share → Add to Home | Android: Menu → Install'}
-                </p>
+                {/iPhone|iPad|iPod/.test(navigator.userAgent) ? (
+                  <p>{isMarathi ? 'Share बटण → "Add to Home Screen"' : 'Tap Share → "Add to Home Screen"'}</p>
+                ) : /Android/.test(navigator.userAgent) ? (
+                  <p>{isMarathi ? 'Menu (⋮) → "Add to Home screen"' : 'Menu (⋮) → "Add to Home screen"'}</p>
+                ) : (
+                  <p>{isMarathi ? 'Address bar मधील install (⊕) आयकॉन क्लिक करा' : 'Click the install (⊕) icon in the address bar'}</p>
+                )}
               </div>
             )}
           </div>
