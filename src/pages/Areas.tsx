@@ -15,9 +15,9 @@ const Areas: React.FC = () => {
   const t = useTranslation(settings.language);
   const isMarathi = settings.language === 'mr';
 
-  // Get active groups for the dropdown
+  // Get active groups for the dropdown (exclude soft-deleted)
   const activeGroups = (data.groups || [])
-    .filter(g => g.status === 'active')
+    .filter(g => g.status === 'active' && !g.deleted)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const [isModalOpen, setIsModalOpen] = useState(false);

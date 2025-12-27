@@ -10,9 +10,9 @@ const Home: React.FC = () => {
   const { data, importData, settings, setLanguage } = useApp();
   const isMarathi = settings.language === 'mr';
 
-  // Get first active group for default navigation
+  // Get first active group for default navigation (exclude soft-deleted)
   const activeGroups = (data.groups || [])
-    .filter(g => g.status === 'active')
+    .filter(g => g.status === 'active' && !g.deleted)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const firstGroupId = activeGroups.length > 0 ? activeGroups[0].id : null;
   const defaultPath = firstGroupId ? `/attendance/${firstGroupId}` : '/admin';

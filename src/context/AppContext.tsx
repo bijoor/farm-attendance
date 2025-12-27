@@ -162,9 +162,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteGroup = (id: string) => {
+    // Soft delete for sync compatibility
     setData(prev => ({
       ...prev,
-      groups: (prev.groups || []).filter(g => g.id !== id),
+      groups: (prev.groups || []).map(g =>
+        g.id === id ? { ...g, deleted: true, deletedAt: new Date().toISOString() } : g
+      ),
     }));
   };
 

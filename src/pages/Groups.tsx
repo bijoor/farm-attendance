@@ -33,7 +33,8 @@ const Groups: React.FC = () => {
     return group.name;
   };
 
-  const groups = data.groups || [];
+  // Filter out soft-deleted groups
+  const groups = (data.groups || []).filter(g => !g.deleted);
 
   // Sort groups by order
   const sortedGroups = [...groups].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));

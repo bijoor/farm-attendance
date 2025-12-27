@@ -25,9 +25,9 @@ const AttendanceLayout: React.FC = () => {
   const syncUrl = getSyncUrl();
   useAutoSync(data, !!syncUrl);
 
-  // Get active groups sorted by order
+  // Get active groups sorted by order (exclude soft-deleted)
   const activeGroups = (data.groups || [])
-    .filter(g => g.status === 'active')
+    .filter(g => g.status === 'active' && !g.deleted)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   // Build navigation items dynamically from groups

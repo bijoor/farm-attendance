@@ -37,6 +37,8 @@ export interface Group {
   marathiName?: string;   // Marathi name (e.g., "गट अ")
   status: 'active' | 'inactive';
   order?: number;         // Display order (lower numbers appear first)
+  deleted?: boolean;      // Soft delete flag for sync
+  deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
 
 // Attendance types

@@ -70,7 +70,15 @@ function getFileTimestamp(filePath) {
 
 // ============ Merge Functions ============
 
-// Merge arrays by ID, preferring item with later modifiedAt
+// Get the effective timestamp for an item (latest of modifiedAt or deletedAt)
+function getItemTimestamp(item) {
+  const modifiedTime = item.modifiedAt ? new Date(item.modifiedAt).getTime() : 0;
+  const deletedTime = item.deletedAt ? new Date(item.deletedAt).getTime() : 0;
+  return Math.max(modifiedTime, deletedTime);
+}
+
+// Merge arrays by ID, preferring item with later timestamp
+// Handles soft deletes: deleted items are kept with their deleted flag
 function mergeArray(localArr = [], remoteArr = [], idField = 'id') {
   const map = new Map();
 
@@ -83,8 +91,9 @@ function mergeArray(localArr = [], remoteArr = [], idField = 'id') {
     if (!existing) {
       map.set(item[idField], { ...item });
     } else {
-      const localTime = existing.modifiedAt ? new Date(existing.modifiedAt).getTime() : 0;
-      const remoteTime = item.modifiedAt ? new Date(item.modifiedAt).getTime() : 0;
+      // Compare timestamps - latest wins (including deletedAt)
+      const localTime = getItemTimestamp(existing);
+      const remoteTime = getItemTimestamp(item);
       if (remoteTime >= localTime) {
         map.set(item[idField], { ...item });
       }

@@ -27,7 +27,7 @@ const Dashboard: React.FC = () => {
 
   const activeWorkers = data.workers.filter(w => w.status === 'active').length;
   const totalAreas = data.areas.length;
-  const activeGroups = (data.groups || []).filter(g => g.status === 'active').length;
+  const activeGroups = (data.groups || []).filter(g => g.status === 'active' && !g.deleted).length;
 
   const stats = [
     {
