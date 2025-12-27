@@ -5,7 +5,7 @@
  * Each data type (workers, areas, activities, months) is synced separately.
  */
 
-import type { AppData, Worker, Area, Activity, MonthData } from '../types';
+import type { AppData, Worker, Area, Activity, Group, MonthData } from '../types';
 
 const SYNC_URL_KEY = 'graminno-sync-url';
 const SYNC_STATUS_KEY = 'graminno-sync-status';
@@ -27,6 +27,7 @@ export interface SyncStatus {
   workers: FileSyncStatus;
   areas: FileSyncStatus;
   activities: FileSyncStatus;
+  groups: FileSyncStatus;
   months: { [month: string]: FileSyncStatus };
   lastFullSync: string | null;
 }
@@ -41,6 +42,7 @@ const defaultSyncStatus: SyncStatus = {
   workers: { ...defaultFileSyncStatus },
   areas: { ...defaultFileSyncStatus },
   activities: { ...defaultFileSyncStatus },
+  groups: { ...defaultFileSyncStatus },
   months: {},
   lastFullSync: null,
 };
@@ -63,7 +65,7 @@ export function saveSyncStatus(status: SyncStatus): void {
   localStorage.setItem(SYNC_STATUS_KEY, JSON.stringify(status));
 }
 
-export function markFileDirty(fileType: 'workers' | 'areas' | 'activities', status?: SyncStatus): SyncStatus {
+export function markFileDirty(fileType: 'workers' | 'areas' | 'activities' | 'groups', status?: SyncStatus): SyncStatus {
   const current = status || getSyncStatus();
   current[fileType] = {
     ...current[fileType],
@@ -85,7 +87,7 @@ export function markMonthDirty(month: string, status?: SyncStatus): SyncStatus {
   return current;
 }
 
-export function markFileSynced(fileType: 'workers' | 'areas' | 'activities', status?: SyncStatus): SyncStatus {
+export function markFileSynced(fileType: 'workers' | 'areas' | 'activities' | 'groups', status?: SyncStatus): SyncStatus {
   const current = status || getSyncStatus();
   const now = new Date().toISOString();
   current[fileType] = {
@@ -111,7 +113,7 @@ export function markMonthSynced(month: string, status?: SyncStatus): SyncStatus 
 
 export function hasDirtyFiles(): boolean {
   const status = getSyncStatus();
-  if (status.workers.dirty || status.areas.dirty || status.activities.dirty) {
+  if (status.workers.dirty || status.areas.dirty || status.activities.dirty || status.groups.dirty) {
     return true;
   }
   for (const month of Object.values(status.months)) {
@@ -126,6 +128,7 @@ export function getDirtyFiles(): string[] {
   if (status.workers.dirty) dirty.push('workers');
   if (status.areas.dirty) dirty.push('areas');
   if (status.activities.dirty) dirty.push('activities');
+  if (status.groups.dirty) dirty.push('groups');
   for (const [month, monthStatus] of Object.entries(status.months)) {
     if (monthStatus.dirty) dirty.push(`months/${month}`);
   }
@@ -170,7 +173,7 @@ export async function checkServerStatus(url?: string): Promise<boolean> {
 // ============ Per-File Sync Functions ============
 
 async function syncFile<T>(
-  fileType: 'workers' | 'areas' | 'activities',
+  fileType: 'workers' | 'areas' | 'activities' | 'groups',
   localData: T[],
   onSuccess: (data: T[]) => void
 ): Promise<{ success: boolean; message: string }> {
@@ -241,7 +244,7 @@ async function syncMonth(
 // ============ Pull Functions ============
 
 export async function pullFile<T>(
-  fileType: 'workers' | 'areas' | 'activities'
+  fileType: 'workers' | 'areas' | 'activities' | 'groups'
 ): Promise<{ success: boolean; data?: T[]; message: string }> {
   const syncUrl = getSyncUrl();
   if (!syncUrl) return { success: false, message: 'No sync URL' };
@@ -300,6 +303,7 @@ export interface SmartSyncCallbacks {
   onWorkersSync?: (workers: Worker[]) => void;
   onAreasSync?: (areas: Area[]) => void;
   onActivitiesSync?: (activities: Activity[]) => void;
+  onGroupsSync?: (groups: Group[]) => void;
   onMonthSync?: (month: string, data: MonthData) => void;
   onProgress?: (message: string) => void;
 }
@@ -354,6 +358,19 @@ export async function syncDirtyFiles(
     }
   }
 
+  // Sync groups if dirty
+  if (status.groups.dirty) {
+    callbacks.onProgress?.('Syncing groups...');
+    const result = await syncFile('groups', data.groups || [], (synced) => {
+      callbacks.onGroupsSync?.(synced);
+    });
+    if (result.success) {
+      syncedFiles.push('groups');
+    } else {
+      failedFiles.push('groups');
+    }
+  }
+
   // Sync dirty months
   for (const [month, monthStatus] of Object.entries(status.months)) {
     if (monthStatus.dirty) {
@@ -403,15 +420,17 @@ export async function pullData(): Promise<SyncResult> {
     if (result.success && result.data) {
       // Mark all files as synced
       const status = getSyncStatus();
-      status.workers = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
-      status.areas = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
-      status.activities = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
-      status.lastFullSync = new Date().toISOString();
+      const now = new Date().toISOString();
+      status.workers = { lastModified: null, lastSynced: now, dirty: false };
+      status.areas = { lastModified: null, lastSynced: now, dirty: false };
+      status.activities = { lastModified: null, lastSynced: now, dirty: false };
+      status.groups = { lastModified: null, lastSynced: now, dirty: false };
+      status.lastFullSync = now;
 
       // Mark all months as synced
       for (const month of result.data.months || []) {
         if (month.month) {
-          status.months[month.month] = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
+          status.months[month.month] = { lastModified: null, lastSynced: now, dirty: false };
         }
       }
       saveSyncStatus(status);
@@ -461,15 +480,17 @@ export async function pushData(data: AppData): Promise<SyncResult> {
     if (result.success) {
       // Mark all files as synced
       const status = getSyncStatus();
-      status.workers = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
-      status.areas = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
-      status.activities = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
-      status.lastFullSync = new Date().toISOString();
+      const now = new Date().toISOString();
+      status.workers = { lastModified: null, lastSynced: now, dirty: false };
+      status.areas = { lastModified: null, lastSynced: now, dirty: false };
+      status.activities = { lastModified: null, lastSynced: now, dirty: false };
+      status.groups = { lastModified: null, lastSynced: now, dirty: false };
+      status.lastFullSync = now;
 
       // Mark all months as synced
       for (const month of data.months || []) {
         if (month.month) {
-          status.months[month.month] = { lastModified: null, lastSynced: new Date().toISOString(), dirty: false };
+          status.months[month.month] = { lastModified: null, lastSynced: now, dirty: false };
         }
       }
       saveSyncStatus(status);

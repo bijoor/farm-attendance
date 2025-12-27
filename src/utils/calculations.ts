@@ -1,4 +1,4 @@
-import type { AppData, MonthData, Worker, WorkerMonthlyCost, MonthlyReport, ActivityReport, AreaReport, GroupDayEntry } from '../types';
+import type { AppData, MonthData, Worker, WorkerMonthlyCost, MonthlyReport, ActivityReport, AreaReport, GroupReport, GroupDayEntry } from '../types';
 import { getDaysInMonth, parseISO, format } from 'date-fns';
 
 // Helper to get all day entries from a month (supports both legacy and groups format)
@@ -199,6 +199,66 @@ export const calculateCostByWorkerForPeriod = (
         totalCost,
       };
     });
+};
+
+export const calculateCostByGroup = (
+  data: AppData,
+  startMonth: string,
+  endMonth: string
+): GroupReport[] => {
+  const groupCosts: { [groupId: string]: { totalCost: number; totalDays: number } } = {};
+
+  // Initialize all groups
+  (data.groups || []).forEach(group => {
+    groupCosts[group.id] = { totalCost: 0, totalDays: 0 };
+  });
+
+  // Filter months in range
+  const monthsInRange = data.months.filter(m => m.month >= startMonth && m.month <= endMonth);
+
+  monthsInRange.forEach(monthData => {
+    // Process each group in the month
+    if (monthData.groups) {
+      monthData.groups.forEach(monthGroup => {
+        const groupId = monthGroup.groupId;
+        if (!groupId || !groupCosts[groupId]) return;
+
+        // Sum up attendance for this group
+        (monthGroup.days || []).forEach(day => {
+          Object.entries(day.attendance).forEach(([workerId, status]) => {
+            const worker = data.workers.find(w => w.id === workerId);
+            if (worker) {
+              if (status === 'P') {
+                groupCosts[groupId].totalCost += worker.dailyRate;
+                groupCosts[groupId].totalDays += 1;
+              } else if (status === 'H') {
+                groupCosts[groupId].totalCost += worker.dailyRate * 0.5;
+                groupCosts[groupId].totalDays += 0.5;
+              }
+            }
+          });
+        });
+      });
+    }
+  });
+
+  // Sort by group order
+  return (data.groups || [])
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map(group => ({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      totalCost: groupCosts[group.id]?.totalCost || 0,
+      totalDays: groupCosts[group.id]?.totalDays || 0,
+    }));
+};
+
+export const calculateCostByGroupForMonth = (
+  data: AppData,
+  month: string
+): GroupReport[] => {
+  return calculateCostByGroup(data, month, month);
 };
 
 export const formatCurrency = (amount: number): string => {

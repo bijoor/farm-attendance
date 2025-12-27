@@ -9,19 +9,21 @@ import {
   calculateCostByActivity,
   calculateCostByArea,
   calculateCostByWorkerForPeriod,
+  calculateCostByGroup,
   formatCurrency,
   formatMonthYear,
 } from '../utils/calculations';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Users, ClipboardList, MapPin, Calendar } from 'lucide-react';
+import { Users, ClipboardList, MapPin, Calendar, Users2 } from 'lucide-react';
 
 const COLORS = ['#1B6B7C', '#2A8A9E', '#4ECDC4', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 const Reports: React.FC = () => {
   const { data, settings, getMonthData } = useApp();
   const t = useTranslation(settings.language);
+  const isMarathi = settings.language === 'mr';
 
-  const [activeTab, setActiveTab] = useState<'worker' | 'activity' | 'area' | 'custom'>('worker');
+  const [activeTab, setActiveTab] = useState<'group' | 'worker' | 'activity' | 'area' | 'custom'>('group');
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [startMonth, setStartMonth] = useState(format(new Date(new Date().setMonth(new Date().getMonth() - 2)), 'yyyy-MM'));
   const [endMonth, setEndMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -45,6 +47,7 @@ const Reports: React.FC = () => {
   const activityReport = calculateCostByActivity(data, startMonth, endMonth);
   const areaReport = calculateCostByArea(data, startMonth, endMonth);
   const workerPeriodReport = calculateCostByWorkerForPeriod(data, startMonth, endMonth);
+  const groupReport = calculateCostByGroup(data, startMonth, endMonth);
 
   // Chart data
   const workerChartData = monthlyReport.workers
@@ -59,7 +62,15 @@ const Reports: React.FC = () => {
     .filter(a => a.totalCost > 0)
     .map(a => ({ name: a.areaCode, cost: a.totalCost, fullName: a.areaName }));
 
+  const groupChartData = groupReport
+    .filter(g => g.totalCost > 0)
+    .map(g => ({
+      name: isMarathi && g.marathiName ? g.marathiName : g.groupName,
+      cost: g.totalCost
+    }));
+
   const tabs = [
+    { id: 'group', label: t('costByGroup'), icon: Users2 },
     { id: 'worker', label: t('costByWorker'), icon: Users },
     { id: 'activity', label: t('costByActivity'), icon: ClipboardList },
     { id: 'area', label: t('costByArea'), icon: MapPin },
@@ -92,6 +103,117 @@ const Reports: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Cost by Group */}
+      {activeTab === 'group' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <div className="flex flex-wrap gap-4">
+              <Select
+                label={t('from')}
+                value={startMonth}
+                onChange={e => setStartMonth(e.target.value)}
+                options={monthOptions}
+                className="flex-1 min-w-[150px]"
+              />
+              <Select
+                label={t('to')}
+                value={endMonth}
+                onChange={e => setEndMonth(e.target.value)}
+                options={monthOptions}
+                className="flex-1 min-w-[150px]"
+              />
+            </div>
+          </div>
+
+          {/* Summary Card */}
+          <div className="bg-graminno-600 text-white rounded-xl p-6 shadow-sm">
+            <div className="text-sm opacity-80">
+              {formatMonthYear(startMonth)} - {formatMonthYear(endMonth)}
+            </div>
+            <div className="text-3xl font-bold mt-1">
+              {formatCurrency(groupReport.reduce((sum, g) => sum + g.totalCost, 0))}
+            </div>
+            <div className="text-sm opacity-80 mt-2">
+              {groupReport.reduce((sum, g) => sum + g.totalDays, 0)} total days worked
+            </div>
+          </div>
+
+          {/* Pie Chart */}
+          {groupChartData.length > 0 && (
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
+              <h3 className="font-medium text-slate-800 mb-4">{t('costByGroup')}</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={groupChartData}
+                      dataKey="cost"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
+                    >
+                      {groupChartData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">{t('group')}</th>
+                    <th className="text-center py-3 px-4 font-medium text-slate-600">{t('daysWorked')}</th>
+                    <th className="text-right py-3 px-4 font-medium text-slate-600">{t('totalCost')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupReport
+                    .filter(g => g.totalCost > 0)
+                    .map(group => (
+                      <tr key={group.groupId} className="border-b border-slate-100">
+                        <td className="py-3 px-4">
+                          <div className="font-medium text-slate-800">
+                            {isMarathi && group.marathiName ? group.marathiName : group.groupName}
+                          </div>
+                          {isMarathi && group.marathiName && (
+                            <div className="text-xs text-slate-400">{group.groupName}</div>
+                          )}
+                          {!isMarathi && group.marathiName && (
+                            <div className="text-xs text-slate-400">{group.marathiName}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center text-slate-600">{group.totalDays}</td>
+                        <td className="py-3 px-4 text-right font-medium text-slate-800">{formatCurrency(group.totalCost)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+                <tfoot className="bg-graminno-50">
+                  <tr>
+                    <td className="py-3 px-4 font-bold text-graminno-800">{t('total')}</td>
+                    <td className="py-3 px-4 text-center font-medium text-graminno-800">
+                      {groupReport.reduce((sum, g) => sum + g.totalDays, 0)}
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold text-graminno-800">
+                      {formatCurrency(groupReport.reduce((sum, g) => sum + g.totalCost, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cost by Worker */}
       {activeTab === 'worker' && (

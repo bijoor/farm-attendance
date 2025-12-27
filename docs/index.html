@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/farm-attendance/favicon.png" />
+    <link rel="manifest" href="/farm-attendance/manifest.json" />
+    <link rel="apple-touch-icon" href="/farm-attendance/icons/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#16a34a" />
+    <meta name="description" content="Graminno Farm Attendance Tracker - Track worker attendance, activities, and costs" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Graminno" />
+    <title>Graminno - Farm Attendance Tracker</title>
+
+    <!-- SPA redirect script for GitHub Pages -->
+    <script type="text/javascript">
+      // Single Page Apps for GitHub Pages
+      // MIT License
+      // https://github.com/rafgraph/spa-github-pages
+      (function(l) {
+        if (l.search[1] === '/' ) {
+          var decoded = l.search.slice(1).split('&').map(function(s) {
+            return s.replace(/~and~/g, '&')
+          }).join('?');
+          window.history.replaceState(null, null,
+              l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      }(window.location))
+    </script>
+    <script type="module" crossorigin src="/farm-attendance/assets/index-Cdn9ET2Z.js"></script>
+    <link rel="stylesheet" crossorigin href="/farm-attendance/assets/index-BbBPXCuy.css">
+  <script id="vite-plugin-pwa:register-sw" src="/farm-attendance/registerSW.js"></script></head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Trigger sync when coming back online
+      window.addEventListener('online', () => {
+        console.log('[App] Back online - triggering sync');
+        window.dispatchEvent(new CustomEvent('app-online'));
+      });
+
+      // Log offline status
+      window.addEventListener('offline', () => {
+        console.log('[App] Gone offline - changes will sync when back online');
+      });
+    </script>
+  </body>
+</html>

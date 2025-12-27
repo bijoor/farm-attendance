@@ -29,6 +29,15 @@ export interface Activity {
   category?: string;
 }
 
+// Group types (master data for reusable groups)
+export interface Group {
+  id: string;
+  name: string;           // English name (e.g., "Team A", "Spraying Team")
+  marathiName?: string;   // Marathi name (e.g., "गट अ")
+  status: 'active' | 'inactive';
+  order?: number;         // Display order (lower numbers appear first)
+}
+
 // Attendance types
 export type AttendanceStatus = 'P' | 'A' | 'H' | ''; // Present, Absent, Half-day, Empty
 
@@ -47,8 +56,9 @@ export interface GroupDayEntry {
 // Activity group at month level - each group has its own attendance matrix
 export interface MonthActivityGroup {
   id: string;
-  name?: string; // e.g., "Group 1", "Spraying Team"
-  workerIds?: string[]; // Workers in this group (if undefined, all month workers)
+  groupId: string;        // Reference to master Group
+  name?: string;          // Legacy: inline name (deprecated, use groupId)
+  workerIds?: string[];   // Workers in this group (if undefined, all month workers)
   days: GroupDayEntry[];
 }
 
@@ -75,6 +85,7 @@ export interface AppData {
   workers: Worker[];
   areas: Area[];
   activities: Activity[];
+  groups: Group[];
   months: MonthData[];
   exportedAt?: string;
   version?: string;
@@ -115,6 +126,14 @@ export interface ActivityReport {
 export interface AreaReport {
   areaCode: string;
   areaName: string;
+  totalCost: number;
+  totalDays: number;
+}
+
+export interface GroupReport {
+  groupId: string;
+  groupName: string;
+  marathiName?: string;
   totalCost: number;
   totalDays: number;
 }

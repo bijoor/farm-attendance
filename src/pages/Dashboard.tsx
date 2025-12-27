@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTranslation } from '../data/translations';
 import PageHeader from '../components/layout/PageHeader';
-import { formatCurrency, calculateMonthlyReport } from '../utils/calculations';
+import { formatCurrency, calculateMonthlyReport, calculateCostByGroupForMonth } from '../utils/calculations';
 import { format } from 'date-fns';
 import {
   Users,
@@ -12,6 +12,7 @@ import {
   Calendar,
   TrendingUp,
   ArrowRight,
+  Users2,
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -21,12 +22,21 @@ const Dashboard: React.FC = () => {
   const currentMonth = format(new Date(), 'yyyy-MM');
   const currentMonthData = data.months.find(m => m.month === currentMonth);
   const monthlyReport = calculateMonthlyReport(data.workers, currentMonthData);
+  const groupReport = calculateCostByGroupForMonth(data, currentMonth);
+  const isMarathi = settings.language === 'mr';
 
   const activeWorkers = data.workers.filter(w => w.status === 'active').length;
   const totalAreas = data.areas.length;
-  const totalActivities = data.activities.length;
+  const activeGroups = (data.groups || []).filter(g => g.status === 'active').length;
 
   const stats = [
+    {
+      label: t('groups'),
+      value: activeGroups,
+      icon: Users2,
+      color: 'bg-orange-500',
+      link: '/groups',
+    },
     {
       label: t('workers'),
       value: activeWorkers,
@@ -40,13 +50,6 @@ const Dashboard: React.FC = () => {
       icon: MapPin,
       color: 'bg-green-500',
       link: '/areas',
-    },
-    {
-      label: t('activities'),
-      value: totalActivities,
-      icon: ClipboardList,
-      color: 'bg-purple-500',
-      link: '/activities',
     },
     {
       label: `${t('totalCost')} (${format(new Date(), 'MMM')})`,
@@ -121,6 +124,46 @@ const Dashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Group-wise Cost Summary */}
+      {groupReport.length > 0 && groupReport.some(g => g.totalCost > 0) && (
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">
+              {t('costByGroup')} - {format(new Date(), 'MMMM yyyy')}
+            </h2>
+            <Link
+              to="/reports"
+              className="text-sm text-graminno-600 hover:text-graminno-700 font-medium"
+            >
+              {t('reports')} <ArrowRight size={14} className="inline ml-1" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {groupReport
+              .filter(g => g.totalCost > 0)
+              .map(group => (
+                <div
+                  key={group.groupId}
+                  className="bg-gradient-to-br from-graminno-50 to-slate-50 rounded-lg p-4 border border-graminno-100"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users2 size={18} className="text-graminno-600" />
+                    <span className="font-medium text-slate-800">
+                      {isMarathi && group.marathiName ? group.marathiName : group.groupName}
+                    </span>
+                  </div>
+                  <div className="text-2xl font-bold text-graminno-700">
+                    {formatCurrency(group.totalCost)}
+                  </div>
+                  <div className="text-sm text-slate-500 mt-1">
+                    {group.totalDays} {t('daysWorked').toLowerCase()}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* This Month Summary */}
       {monthlyReport.workers.length > 0 && (

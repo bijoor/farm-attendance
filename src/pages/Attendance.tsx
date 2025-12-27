@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTranslation } from '../data/translations';
 import PageHeader from '../components/layout/PageHeader';
@@ -7,7 +7,7 @@ import Select from '../components/ui/Select';
 import Modal from '../components/ui/Modal';
 import { format, parseISO } from 'date-fns';
 import { getDaysArrayForMonth, formatCurrency, formatMonthYear } from '../utils/calculations';
-import { ChevronLeft, ChevronRight, Users, Plus, Trash2, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import type { MonthActivityGroup, AttendanceStatus } from '../types';
 
 const Attendance: React.FC = () => {
@@ -18,12 +18,11 @@ const Attendance: React.FC = () => {
     getMonthGroups,
     updateMonthWorkers,
     addMonthGroup,
-    removeMonthGroup,
-    updateGroupName,
     updateGroupWorkers,
     updateGroupAttendance,
     updateGroupDayActivity,
     getWorkerDayTotal,
+    getGroupById,
   } = useApp();
   const t = useTranslation(settings.language);
   const isMarathi = settings.language === 'mr';
@@ -31,8 +30,6 @@ const Attendance: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [isWorkerModalOpen, setIsWorkerModalOpen] = useState(false);
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([]);
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-  const [editingGroupName, setEditingGroupName] = useState('');
 
   // For group worker management
   const [groupWorkerModalOpen, setGroupWorkerModalOpen] = useState(false);
@@ -47,9 +44,52 @@ const Attendance: React.FC = () => {
     return worker.name;
   };
 
+  // Get group display name from master groups
+  const getGroupDisplayName = (group: MonthActivityGroup, fallbackIndex: number) => {
+    const masterGroup = getGroupById(group.groupId);
+    if (masterGroup) {
+      if (isMarathi && masterGroup.marathiName) {
+        return masterGroup.marathiName;
+      }
+      return masterGroup.name;
+    }
+    // Legacy fallback: use inline name or generic label
+    return group.name || `${isMarathi ? 'गट' : 'Group'} ${fallbackIndex + 1}`;
+  };
+
   const allActiveWorkers = data.workers.filter(w => w.status === 'active');
   const monthData = getMonthData(currentMonth);
-  const groups = getMonthGroups(currentMonth);
+  const monthGroups = getMonthGroups(currentMonth);
+
+  // Get active master groups sorted by order
+  const activeGroups = (data.groups || [])
+    .filter(g => g.status === 'active')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  // Auto-initialize: ensure all active master groups exist in the current month
+  useEffect(() => {
+    const existingGroupIds = monthGroups.map(g => g.groupId).filter(Boolean);
+
+    // Add any missing active groups to this month
+    for (const masterGroup of activeGroups) {
+      if (!existingGroupIds.includes(masterGroup.id)) {
+        addMonthGroup(currentMonth, masterGroup.id);
+      }
+    }
+  }, [currentMonth, activeGroups, monthGroups, addMonthGroup]);
+
+  // Filter to show only groups that correspond to active master groups, sorted by master group order
+  const groups = monthGroups
+    .filter(mg => {
+      const masterGroup = getGroupById(mg.groupId);
+      return masterGroup && masterGroup.status === 'active';
+    })
+    .sort((a, b) => {
+      const masterA = getGroupById(a.groupId);
+      const masterB = getGroupById(b.groupId);
+      return (masterA?.order ?? 0) - (masterB?.order ?? 0);
+    });
+
   const days = getDaysArrayForMonth(currentMonth);
 
   // Get workers for this month (use workerIds if set, otherwise all active workers)
@@ -249,62 +289,6 @@ const Attendance: React.FC = () => {
     setEditingGroupForWorkers(null);
   };
 
-  // Check if worker has any attendance in a group
-  const workerHasAttendanceInGroup = (group: MonthActivityGroup, workerId: string): boolean => {
-    for (const day of days) {
-      const status = getAttendanceStatus(group, workerId, day);
-      if (status === 'P' || status === 'A' || status === 'H') {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Check if a group has any attendance data
-  const groupHasAnyAttendance = (group: MonthActivityGroup): boolean => {
-    const groupWorkers = getGroupWorkers(group);
-    for (const worker of groupWorkers) {
-      if (workerHasAttendanceInGroup(group, worker.id)) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Group management
-  const handleAddGroup = () => {
-    addMonthGroup(currentMonth);
-  };
-
-  const handleRemoveGroup = (groupId: string) => {
-    if (groups.length <= 1) return;
-
-    const group = groups.find(g => g.id === groupId);
-    if (group && groupHasAnyAttendance(group)) {
-      alert(isMarathi
-        ? 'या गटात हजेरी नोंदवलेली आहे. प्रथम सर्व हजेरी काढा.'
-        : 'This group has attendance recorded. Clear all attendance first.');
-      return;
-    }
-
-    if (confirm(isMarathi ? 'हा गट हटवायचा आहे का?' : 'Remove this group?')) {
-      removeMonthGroup(currentMonth, groupId);
-    }
-  };
-
-  const startEditingGroupName = (group: MonthActivityGroup) => {
-    setEditingGroupId(group.id);
-    setEditingGroupName(group.name || '');
-  };
-
-  const saveGroupName = () => {
-    if (editingGroupId && editingGroupName.trim()) {
-      updateGroupName(currentMonth, editingGroupId, editingGroupName.trim());
-    }
-    setEditingGroupId(null);
-    setEditingGroupName('');
-  };
-
   const handleActivityChange = (groupId: string, day: number, activityCode: string) => {
     const dateStr = `${currentMonth}-${day.toString().padStart(2, '0')}`;
     const group = groups.find(g => g.id === groupId);
@@ -400,28 +384,9 @@ const Attendance: React.FC = () => {
             <div key={group.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
               {/* Group Header */}
               <div className="bg-graminno-50 border-b border-graminno-200 p-2 sm:p-3 flex items-center gap-2">
-                {editingGroupId === group.id ? (
-                  <input
-                    type="text"
-                    value={editingGroupName}
-                    onChange={e => setEditingGroupName(e.target.value)}
-                    onBlur={saveGroupName}
-                    onKeyDown={e => e.key === 'Enter' && saveGroupName()}
-                    className="flex-1 px-2 py-1 text-sm border border-graminno-300 rounded focus:outline-none focus:ring-2 focus:ring-graminno-500"
-                    autoFocus
-                  />
-                ) : (
-                  <h3 className="flex-1 font-semibold text-graminno-800 text-sm sm:text-base truncate">
-                    {group.name || `Group ${groupIndex + 1}`}
-                  </h3>
-                )}
-                <button
-                  onClick={() => startEditingGroupName(group)}
-                  className="p-2 hover:bg-graminno-100 rounded text-graminno-600"
-                  title={t('edit')}
-                >
-                  <Pencil size={16} />
-                </button>
+                <h3 className="flex-1 font-semibold text-graminno-800 text-sm sm:text-base truncate">
+                  {getGroupDisplayName(group, groupIndex)}
+                </h3>
                 <button
                   onClick={() => openGroupWorkerModal(group)}
                   className="p-2 hover:bg-graminno-100 rounded text-graminno-600 flex items-center gap-1"
@@ -430,15 +395,6 @@ const Attendance: React.FC = () => {
                   <Users size={16} />
                   <span className="text-xs font-medium">{groupWorkers.length}</span>
                 </button>
-                {groups.length > 1 && (
-                  <button
-                    onClick={() => handleRemoveGroup(group.id)}
-                    className="p-2 hover:bg-red-100 rounded text-red-500"
-                    title={t('delete')}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
               </div>
 
               {/* Attendance Grid */}
@@ -562,7 +518,7 @@ const Attendance: React.FC = () => {
                     <tfoot>
                       <tr className="bg-graminno-50 border-t-2 border-graminno-200">
                         <td className="sticky left-0 bg-graminno-50 py-3 px-3 font-bold text-graminno-800">
-                          {group.name || `Group ${groupIndex + 1}`} {t('total')}
+                          {getGroupDisplayName(group, groupIndex)} {t('total')}
                         </td>
                         <td colSpan={days.length + 1} />
                         <td className="py-3 px-2 text-center font-bold text-graminno-800">
@@ -576,15 +532,6 @@ const Attendance: React.FC = () => {
             </div>
           );
         })}
-
-        {/* Add Group Button */}
-        <button
-          onClick={handleAddGroup}
-          className="w-full p-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 hover:border-graminno-500 hover:text-graminno-600 flex items-center justify-center gap-2 transition-colors"
-        >
-          <Plus size={20} />
-          {isMarathi ? 'नवीन गट जोडा' : 'Add Activity Group'}
-        </button>
 
         {/* Grand Total */}
         <div className="bg-graminno-600 text-white rounded-xl p-4 flex items-center justify-between">
@@ -738,6 +685,7 @@ const Attendance: React.FC = () => {
           </div>
         </div>
       </Modal>
+
     </div>
   );
 };

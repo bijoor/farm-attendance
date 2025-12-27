@@ -4,6 +4,7 @@ import Layout from './components/layout/Layout';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Workers from './pages/Workers';
+import Groups from './pages/Groups';
 import Areas from './pages/Areas';
 import Activities from './pages/Activities';
 import Attendance from './pages/Attendance';
@@ -23,6 +24,7 @@ function App() {
           <Route element={<Layout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="workers" element={<Workers />} />
+            <Route path="groups" element={<Groups />} />
             <Route path="areas" element={<Areas />} />
             <Route path="activities" element={<Activities />} />
             <Route path="attendance" element={<Attendance />} />

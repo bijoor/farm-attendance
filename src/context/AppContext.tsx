@@ -1,7 +1,7 @@
-import React, { createContext, useContext, type ReactNode } from 'react';
+import React, { createContext, useContext, type ReactNode, useEffect } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import type { AppData, AppSettings, Worker, Area, Activity, MonthData, MonthActivityGroup, GroupDayEntry, AttendanceStatus, Language } from '../types';
-import { initialAppData } from '../data/sampleData';
+import type { AppData, AppSettings, Worker, Area, Activity, Group, MonthData, MonthActivityGroup, GroupDayEntry, AttendanceStatus, Language } from '../types';
+import { initialAppData, sampleGroups } from '../data/sampleData';
 import { v4 as uuidv4 } from 'uuid';
 
 interface AppContextType {
@@ -24,13 +24,19 @@ interface AppContextType {
   updateActivity: (id: string, activity: Partial<Activity>) => void;
   deleteActivity: (id: string) => void;
 
+  // Group operations (master data)
+  addGroup: (group: Omit<Group, 'id'>) => void;
+  updateGroup: (id: string, group: Partial<Group>) => void;
+  deleteGroup: (id: string) => void;
+  getGroupById: (id: string) => Group | undefined;
+  reorderGroup: (id: string, direction: 'up' | 'down') => void;
+
   // Month & Group operations
   getMonthData: (month: string) => MonthData | undefined;
   getMonthGroups: (month: string) => MonthActivityGroup[];
   updateMonthWorkers: (month: string, workerIds: string[]) => void;
-  addMonthGroup: (month: string, name?: string) => string; // Returns new group ID
-  removeMonthGroup: (month: string, groupId: string) => void;
-  updateGroupName: (month: string, groupId: string, name: string) => void;
+  addMonthGroup: (month: string, groupId: string) => string; // Returns new month-group instance ID
+  removeMonthGroup: (month: string, monthGroupId: string) => void;
   updateGroupWorkers: (month: string, groupId: string, workerIds: string[]) => void;
 
   // Attendance operations (within groups)
@@ -54,6 +60,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [settings, setSettings] = useLocalStorage<AppSettings>('graminno-attendance-settings', {
     language: 'en',
   });
+
+  // Migration: Ensure data has groups array (for existing users upgrading)
+  useEffect(() => {
+    if (!data.groups) {
+      setData(prev => ({
+        ...prev,
+        groups: sampleGroups,
+      }));
+    } else {
+      // Migration: Ensure all groups have order values
+      const groupsNeedOrder = data.groups.some(g => g.order === undefined);
+      if (groupsNeedOrder) {
+        setData(prev => ({
+          ...prev,
+          groups: (prev.groups || []).map((g, index) => ({
+            ...g,
+            order: g.order ?? (index + 1),
+          })),
+        }));
+      }
+    }
+  }, [data.groups, setData]);
 
   // Worker operations
   const addWorker = (worker: Omit<Worker, 'id'>) => {
@@ -115,31 +143,70 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
-  // Helper to migrate legacy data to new group format
+  // Group operations (master data)
+  const addGroup = (group: Omit<Group, 'id'>) => {
+    setData(prev => {
+      const existingGroups = prev.groups || [];
+      // Auto-assign order: max existing order + 1
+      const maxOrder = existingGroups.reduce((max, g) => Math.max(max, g.order ?? 0), 0);
+      const newGroup: Group = { ...group, id: uuidv4(), order: maxOrder + 1 };
+      return { ...prev, groups: [...existingGroups, newGroup] };
+    });
+  };
+
+  const updateGroup = (id: string, groupUpdate: Partial<Group>) => {
+    setData(prev => ({
+      ...prev,
+      groups: (prev.groups || []).map(g => (g.id === id ? { ...g, ...groupUpdate } : g)),
+    }));
+  };
+
+  const deleteGroup = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      groups: (prev.groups || []).filter(g => g.id !== id),
+    }));
+  };
+
+  const getGroupById = (id: string): Group | undefined => {
+    return (data.groups || []).find(g => g.id === id);
+  };
+
+  const reorderGroup = (id: string, direction: 'up' | 'down') => {
+    setData(prev => {
+      const groups = [...(prev.groups || [])];
+      // Sort by order to get current positions
+      const sortedGroups = groups.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const currentIndex = sortedGroups.findIndex(g => g.id === id);
+
+      if (currentIndex === -1) return prev;
+
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= sortedGroups.length) return prev;
+
+      // Swap order values
+      const currentGroup = sortedGroups[currentIndex];
+      const targetGroup = sortedGroups[targetIndex];
+      const currentOrder = currentGroup.order ?? currentIndex;
+      const targetOrder = targetGroup.order ?? targetIndex;
+
+      const updatedGroups = groups.map(g => {
+        if (g.id === currentGroup.id) return { ...g, order: targetOrder };
+        if (g.id === targetGroup.id) return { ...g, order: currentOrder };
+        return g;
+      });
+
+      return { ...prev, groups: updatedGroups };
+    });
+  };
+
+  // Helper to get groups for a month (handles legacy data)
   const migrateMonthToGroups = (monthData: MonthData): MonthActivityGroup[] => {
     if (monthData.groups && monthData.groups.length > 0) {
       return monthData.groups;
     }
-    // Migrate legacy days to a single default group
-    if (monthData.days && monthData.days.length > 0) {
-      const defaultGroup: MonthActivityGroup = {
-        id: uuidv4(),
-        name: 'Group 1',
-        days: monthData.days.map(d => ({
-          date: d.date,
-          activityCode: d.activityCode,
-          areaCode: d.areaCode,
-          attendance: d.attendance,
-        })),
-      };
-      return [defaultGroup];
-    }
-    // No data - return empty default group
-    return [{
-      id: uuidv4(),
-      name: 'Group 1',
-      days: [],
-    }];
+    // Legacy days format - return empty (will be handled by migration)
+    return [];
   };
 
   // Month & Group operations
@@ -150,11 +217,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const getMonthGroups = (month: string): MonthActivityGroup[] => {
     const monthData = data.months.find(m => m.month === month);
     if (!monthData) {
-      return [{
-        id: uuidv4(),
-        name: 'Group 1',
-        days: [],
-      }];
+      return [];
     }
     return migrateMonthToGroups(monthData);
   };
@@ -166,7 +229,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (monthIndex === -1) {
         return {
           ...prev,
-          months: [...prev.months, { month, workerIds, groups: [{ id: uuidv4(), name: 'Group 1', days: [] }] }],
+          months: [...prev.months, { month, workerIds, groups: [] }],
         };
       }
 
@@ -177,23 +240,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  const addMonthGroup = (month: string, name?: string): string => {
-    const newGroupId = uuidv4();
-    const groupName = name || `Group ${getMonthGroups(month).length + 1}`;
+  // Add a master group to a month's attendance
+  const addMonthGroup = (month: string, groupId: string): string => {
+    const newMonthGroupId = uuidv4();
 
     setData(prev => {
       const monthIndex = prev.months.findIndex(m => m.month === month);
 
-      const newGroup: MonthActivityGroup = {
-        id: newGroupId,
-        name: groupName,
+      const newMonthGroup: MonthActivityGroup = {
+        id: newMonthGroupId,
+        groupId: groupId,
         days: [],
       };
 
       if (monthIndex === -1) {
         return {
           ...prev,
-          months: [...prev.months, { month, groups: [{ id: uuidv4(), name: 'Group 1', days: [] }, newGroup] }],
+          months: [...prev.months, { month, groups: [newMonthGroup] }],
         };
       }
 
@@ -203,14 +266,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newMonths = [...prev.months];
       newMonths[monthIndex] = {
         ...existingMonth,
-        groups: [...existingGroups, newGroup],
+        groups: [...existingGroups, newMonthGroup],
         days: undefined, // Clear legacy days
       };
 
       return { ...prev, months: newMonths };
     });
 
-    return newGroupId;
+    return newMonthGroupId;
   };
 
   const removeMonthGroup = (month: string, groupId: string) => {
@@ -225,29 +288,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (existingGroups.length <= 1) return prev;
 
       const newGroups = existingGroups.filter(g => g.id !== groupId);
-
-      const newMonths = [...prev.months];
-      newMonths[monthIndex] = {
-        ...existingMonth,
-        groups: newGroups,
-        days: undefined,
-      };
-
-      return { ...prev, months: newMonths };
-    });
-  };
-
-  const updateGroupName = (month: string, groupId: string, name: string) => {
-    setData(prev => {
-      const monthIndex = prev.months.findIndex(m => m.month === month);
-      if (monthIndex === -1) return prev;
-
-      const existingMonth = prev.months[monthIndex];
-      const existingGroups = migrateMonthToGroups(existingMonth);
-
-      const newGroups = existingGroups.map(g =>
-        g.id === groupId ? { ...g, name } : g
-      );
 
       const newMonths = [...prev.months];
       newMonths[monthIndex] = {
@@ -284,28 +324,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Attendance operations (within groups)
-  const updateGroupAttendance = (month: string, groupId: string, date: string, workerId: string, status: AttendanceStatus) => {
+  // Note: monthGroupId refers to MonthActivityGroup.id (the instance in a month), not the master Group.id
+  const updateGroupAttendance = (month: string, monthGroupId: string, date: string, workerId: string, status: AttendanceStatus) => {
     setData(prev => {
       const monthIndex = prev.months.findIndex(m => m.month === month);
-
-      if (monthIndex === -1) {
-        // Create new month with default group
-        const newGroup: MonthActivityGroup = {
-          id: groupId,
-          name: 'Group 1',
-          days: [{ date, attendance: { [workerId]: status } }],
-        };
-        return {
-          ...prev,
-          months: [...prev.months, { month, groups: [newGroup] }],
-        };
-      }
+      if (monthIndex === -1) return prev; // Month must exist with groups
 
       const existingMonth = prev.months[monthIndex];
       const existingGroups = migrateMonthToGroups(existingMonth);
 
       const newGroups = existingGroups.map(g => {
-        if (g.id !== groupId) return g;
+        if (g.id !== monthGroupId) return g;
 
         const dayIndex = g.days.findIndex(d => d.date === date);
         let newDays: GroupDayEntry[];
@@ -334,27 +363,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  const updateGroupDayActivity = (month: string, groupId: string, date: string, activityCode?: string, areaCode?: string) => {
+  const updateGroupDayActivity = (month: string, monthGroupId: string, date: string, activityCode?: string, areaCode?: string) => {
     setData(prev => {
       const monthIndex = prev.months.findIndex(m => m.month === month);
-
-      if (monthIndex === -1) {
-        const newGroup: MonthActivityGroup = {
-          id: groupId,
-          name: 'Group 1',
-          days: [{ date, activityCode, areaCode, attendance: {} }],
-        };
-        return {
-          ...prev,
-          months: [...prev.months, { month, groups: [newGroup] }],
-        };
-      }
+      if (monthIndex === -1) return prev; // Month must exist with groups
 
       const existingMonth = prev.months[monthIndex];
       const existingGroups = migrateMonthToGroups(existingMonth);
 
       const newGroups = existingGroups.map(g => {
-        if (g.id !== groupId) return g;
+        if (g.id !== monthGroupId) return g;
 
         const dayIndex = g.days.findIndex(d => d.date === date);
         let newDays: GroupDayEntry[];
@@ -444,12 +462,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addActivity,
     updateActivity,
     deleteActivity,
+    addGroup,
+    updateGroup,
+    deleteGroup,
+    getGroupById,
+    reorderGroup,
     getMonthData,
     getMonthGroups,
     updateMonthWorkers,
     addMonthGroup,
     removeMonthGroup,
-    updateGroupName,
     updateGroupWorkers,
     updateGroupAttendance,
     updateGroupDayActivity,

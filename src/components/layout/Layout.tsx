@@ -7,6 +7,7 @@ import { getSyncUrl } from '../../utils/sync';
 import {
   LayoutDashboard,
   Users,
+  Users2,
   MapPin,
   ClipboardList,
   Calendar,
@@ -33,6 +34,7 @@ const Layout: React.FC = () => {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
     { path: '/workers', icon: Users, label: t('workers') },
+    { path: '/groups', icon: Users2, label: t('groups') },
     { path: '/areas', icon: MapPin, label: t('areas') },
     { path: '/activities', icon: ClipboardList, label: t('activities') },
     { path: '/attendance', icon: Calendar, label: t('attendance') },

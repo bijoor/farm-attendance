@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#16a34a" rx="85"/>
+  <!-- Leaf/plant icon -->
+  <g transform="translate(256, 240)">
+    <!-- Main leaf -->
+    <path d="M0,-100 C55,-100 100,-55 100,0 C100,55 55,100 0,100 C-22,66 -22,33 0,0 C22,-33 22,-66 0,-100" fill="#22c55e" transform="rotate(-45)"/>
+    <!-- Stem -->
+    <path d="M0,0 L0,120" stroke="#166534" stroke-width="14" stroke-linecap="round"/>
+    <!-- Small leaf -->
+    <path d="M0,60 C35,35 60,45 50,85 C35,72 12,72 0,60" fill="#22c55e"/>
+  </g>
+  <!-- Marathi text -->
+  <text x="256" y="290" font-family="Arial, sans-serif" font-size="120" fill="white" text-anchor="middle" dominant-baseline="middle" font-weight="bold">ग्रा</text>
+</svg>
