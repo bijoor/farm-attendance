@@ -1,4 +1,5 @@
 {
+  "id": "/farm-attendance/",
   "name": "Graminno - Farm Attendance",
   "short_name": "Graminno",
   "description": "Farm Attendance Management System - Track worker attendance offline",
@@ -33,6 +34,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icons/screenshot-mobile.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Farm Attendance Tracker - Mobile View"
+    },
+    {
+      "src": "icons/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Farm Attendance Tracker - Desktop View"
     }
   ]
 }
