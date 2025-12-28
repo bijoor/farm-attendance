@@ -55,6 +55,50 @@ async function generateIcons() {
   }
 }
 
+async function generateScreenshots() {
+  // Generate mobile screenshot (540x720) - green background with app branding
+  const mobileWidth = 540;
+  const mobileHeight = 720;
+
+  await sharp({
+    create: {
+      width: mobileWidth,
+      height: mobileHeight,
+      channels: 4,
+      background: { r: 22, g: 163, b: 74, alpha: 1 } // #16a34a theme color
+    }
+  })
+    .composite([{
+      input: readFileSync(join(iconsDir, 'icon-192.svg')),
+      gravity: 'center'
+    }])
+    .png()
+    .toFile(join(iconsDir, 'screenshot-mobile.png'));
+  console.log('Generated: screenshot-mobile.png');
+
+  // Generate desktop screenshot (1280x720) - wide format
+  const desktopWidth = 1280;
+  const desktopHeight = 720;
+
+  await sharp({
+    create: {
+      width: desktopWidth,
+      height: desktopHeight,
+      channels: 4,
+      background: { r: 22, g: 163, b: 74, alpha: 1 }
+    }
+  })
+    .composite([{
+      input: readFileSync(join(iconsDir, 'icon-512.svg')),
+      gravity: 'center'
+    }])
+    .png()
+    .toFile(join(iconsDir, 'screenshot-desktop.png'));
+  console.log('Generated: screenshot-desktop.png');
+}
+
 generateIcons().then(() => {
-  console.log('Icon generation complete!');
+  return generateScreenshots();
+}).then(() => {
+  console.log('Icon and screenshot generation complete!');
 }).catch(console.error);
