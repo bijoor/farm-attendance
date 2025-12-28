@@ -11,6 +11,7 @@ import {
   MapPin,
   ClipboardList,
   BarChart3,
+  IndianRupee,
   Settings,
   Menu,
   X,
@@ -38,6 +39,7 @@ const AdminLayout: React.FC = () => {
     { path: '/admin/areas', icon: MapPin, label: t('areas') },
     { path: '/admin/activities', icon: ClipboardList, label: t('activities') },
     { path: '/admin/reports', icon: BarChart3, label: t('reports') },
+    { path: '/admin/labour-cost', icon: IndianRupee, label: t('labourCost') },
     { path: '/admin/settings', icon: Settings, label: t('settings') },
   ];
 

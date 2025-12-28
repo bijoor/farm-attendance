@@ -261,6 +261,113 @@ export const calculateCostByGroupForMonth = (
   return calculateCostByGroup(data, month, month);
 };
 
+// Detailed worker costs within a group for a specific month
+export interface GroupWorkerCost {
+  workerId: string;
+  workerName: string;
+  marathiName?: string;
+  dailyRate: number;
+  daysWorked: number;
+  halfDays: number;
+  totalDays: number;  // daysWorked + halfDays * 0.5
+  totalCost: number;
+}
+
+export interface GroupLabourCost {
+  groupId: string;
+  groupName: string;
+  marathiName?: string;
+  workers: GroupWorkerCost[];
+  totalDays: number;
+  totalCost: number;
+}
+
+export const calculateLabourCostByGroup = (
+  data: AppData,
+  month: string
+): GroupLabourCost[] => {
+  const monthData = data.months.find(m => m.month === month);
+  if (!monthData || !monthData.groups) {
+    return [];
+  }
+
+  const result: GroupLabourCost[] = [];
+
+  // Process each group in the month
+  monthData.groups.forEach(monthGroup => {
+    const masterGroup = (data.groups || []).find(g => g.id === monthGroup.groupId && !g.deleted);
+    if (!masterGroup) return;
+
+    // Get workers in this group
+    const groupWorkerIds = monthGroup.workerIds || monthData.workerIds || data.workers.filter(w => w.status === 'active').map(w => w.id);
+
+    // Calculate cost for each worker in this group
+    const workerCosts: GroupWorkerCost[] = [];
+
+    groupWorkerIds.forEach(workerId => {
+      const worker = data.workers.find(w => w.id === workerId);
+      if (!worker) return;
+
+      let daysWorked = 0;
+      let halfDays = 0;
+
+      // Count attendance for this worker in this group's days
+      (monthGroup.days || []).forEach(day => {
+        const status = day.attendance[workerId];
+        if (status === 'P') {
+          daysWorked++;
+        } else if (status === 'H') {
+          halfDays++;
+        }
+      });
+
+      // Only include workers with some attendance
+      if (daysWorked > 0 || halfDays > 0) {
+        const totalDays = daysWorked + (halfDays * 0.5);
+        const totalCost = (daysWorked * worker.dailyRate) + (halfDays * worker.dailyRate * 0.5);
+
+        workerCosts.push({
+          workerId: worker.id,
+          workerName: worker.name,
+          marathiName: worker.marathiName,
+          dailyRate: worker.dailyRate,
+          daysWorked,
+          halfDays,
+          totalDays,
+          totalCost,
+        });
+      }
+    });
+
+    // Sort workers by name
+    workerCosts.sort((a, b) => a.workerName.localeCompare(b.workerName));
+
+    const groupTotalDays = workerCosts.reduce((sum, w) => sum + w.totalDays, 0);
+    const groupTotalCost = workerCosts.reduce((sum, w) => sum + w.totalCost, 0);
+
+    // Only include groups with some attendance
+    if (workerCosts.length > 0) {
+      result.push({
+        groupId: masterGroup.id,
+        groupName: masterGroup.name,
+        marathiName: masterGroup.marathiName,
+        workers: workerCosts,
+        totalDays: groupTotalDays,
+        totalCost: groupTotalCost,
+      });
+    }
+  });
+
+  // Sort by group order
+  result.sort((a, b) => {
+    const groupA = (data.groups || []).find(g => g.id === a.groupId);
+    const groupB = (data.groups || []).find(g => g.id === b.groupId);
+    return (groupA?.order ?? 0) - (groupB?.order ?? 0);
+  });
+
+  return result;
+};
+
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',

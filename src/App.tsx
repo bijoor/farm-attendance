@@ -11,6 +11,7 @@ import Activities from './pages/Activities';
 import GroupAttendance from './pages/GroupAttendance';
 import Print from './pages/Print';
 import Reports from './pages/Reports';
+import LabourCost from './pages/LabourCost';
 import Settings from './pages/Settings';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
             <Route path="areas" element={<Areas />} />
             <Route path="activities" element={<Activities />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="labour-cost" element={<LabourCost />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
