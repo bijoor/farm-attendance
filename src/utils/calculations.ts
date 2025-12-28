@@ -298,13 +298,21 @@ export const calculateLabourCostByGroup = (
     const masterGroup = (data.groups || []).find(g => g.id === monthGroup.groupId && !g.deleted);
     if (!masterGroup) return;
 
-    // Get workers in this group
-    const groupWorkerIds = monthGroup.workerIds || monthData.workerIds || data.workers.filter(w => w.status === 'active').map(w => w.id);
+    // Collect all unique worker IDs from attendance records in this group
+    const workerIdsWithAttendance = new Set<string>();
+    (monthGroup.days || []).forEach(day => {
+      Object.keys(day.attendance || {}).forEach(workerId => {
+        const status = day.attendance[workerId];
+        if (status === 'P' || status === 'H') {
+          workerIdsWithAttendance.add(workerId);
+        }
+      });
+    });
 
-    // Calculate cost for each worker in this group
+    // Calculate cost for each worker with attendance
     const workerCosts: GroupWorkerCost[] = [];
 
-    groupWorkerIds.forEach(workerId => {
+    workerIdsWithAttendance.forEach(workerId => {
       const worker = data.workers.find(w => w.id === workerId);
       if (!worker) return;
 
@@ -321,22 +329,19 @@ export const calculateLabourCostByGroup = (
         }
       });
 
-      // Only include workers with some attendance
-      if (daysWorked > 0 || halfDays > 0) {
-        const totalDays = daysWorked + (halfDays * 0.5);
-        const totalCost = (daysWorked * worker.dailyRate) + (halfDays * worker.dailyRate * 0.5);
+      const totalDays = daysWorked + (halfDays * 0.5);
+      const totalCost = (daysWorked * worker.dailyRate) + (halfDays * worker.dailyRate * 0.5);
 
-        workerCosts.push({
-          workerId: worker.id,
-          workerName: worker.name,
-          marathiName: worker.marathiName,
-          dailyRate: worker.dailyRate,
-          daysWorked,
-          halfDays,
-          totalDays,
-          totalCost,
-        });
-      }
+      workerCosts.push({
+        workerId: worker.id,
+        workerName: worker.name,
+        marathiName: worker.marathiName,
+        dailyRate: worker.dailyRate,
+        daysWorked,
+        halfDays,
+        totalDays,
+        totalCost,
+      });
     });
 
     // Sort workers by name
