@@ -27,6 +27,7 @@ function App() {
             <Route path="attendance" element={<Navigate to="/" replace />} />
             <Route path="attendance/:groupId" element={<GroupAttendance />} />
             <Route path="print" element={<Print />} />
+            <Route path="labour-cost" element={<LabourCost />} />
           </Route>
 
           {/* Admin interface (hidden URL) */}

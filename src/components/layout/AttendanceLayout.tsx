@@ -12,6 +12,7 @@ import {
   Cloud,
   Printer,
   Calendar,
+  IndianRupee,
 } from 'lucide-react';
 
 const AttendanceLayout: React.FC = () => {
@@ -37,11 +38,17 @@ const AttendanceLayout: React.FC = () => {
     icon: Calendar,
   }));
 
-  // Add Print at the end
+  // Add Print and Labour Cost at the end
   navItems.push({
     path: '/print',
     label: t('print'),
     icon: Printer,
+  });
+
+  navItems.push({
+    path: '/labour-cost',
+    label: t('labourCost'),
+    icon: IndianRupee,
   });
 
   const handleGoHome = () => {
