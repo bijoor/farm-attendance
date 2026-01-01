@@ -118,26 +118,38 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "✓ Tailscale already installed"
     fi
 
-    # Check if Tailscale is running
+    # Start tailscaled daemon using brew services (runs on boot)
+    echo "Starting Tailscale daemon..."
+    brew services start tailscale 2>/dev/null || true
+
+    # Also start manually in case brew services doesn't work immediately
+    if ! pgrep -x "tailscaled" > /dev/null; then
+        echo "Starting tailscaled manually..."
+        sudo tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+        sleep 3
+    fi
+
+    # Check if Tailscale is connected
     if ! tailscale status &> /dev/null; then
         echo ""
-        echo "Starting Tailscale..."
-        echo "Please complete the authentication in your browser."
-        brew services start tailscale
-        sleep 2
+        echo "Connecting to Tailscale..."
+        echo "A browser will open for authentication (one-time only)."
         tailscale up
     else
-        echo "✓ Tailscale is running"
+        echo "✓ Tailscale is connected"
     fi
 
     # Get Tailscale IP
     TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "Not connected")
 
-    # Setup Tailscale Funnel
+    # Setup Tailscale Funnel (runs in background, persists)
     echo ""
     echo "Setting up Tailscale Funnel for public HTTPS access..."
     echo "(You may need to enable Funnel in Tailscale admin console first)"
-    tailscale funnel --bg 3001 2>/dev/null || echo "Note: Run 'tailscale funnel 3001' manually if needed"
+    tailscale funnel --bg 3001 2>/dev/null || echo "Note: Enable Funnel in admin console, then run 'tailscale funnel 3001'"
+
+    # Get Funnel URL
+    FUNNEL_URL=$(tailscale funnel status 2>/dev/null | grep -o 'https://[^ ]*' | head -1 || echo "Not configured")
 fi
 
 echo ""
@@ -145,21 +157,23 @@ echo "╔═══════════════════════�
 echo "║     Installation Complete!                                 ║"
 echo "╠═══════════════════════════════════════════════════════════╣"
 echo "║                                                           ║"
-echo "║  Server running at: http://localhost:3001/farm-attendance/║"
+echo "║  Local:  http://localhost:3001/farm-attendance/           ║"
 echo "║                                                           ║"
-echo "║  Remote access (Tailscale):                               ║"
-echo "║    Tailscale IP: $TAILSCALE_IP                            "
-echo "║    Run: tailscale funnel 3001                             ║"
-echo "║    for public HTTPS URL                                   ║"
+if [[ -n "$TAILSCALE_IP" && "$TAILSCALE_IP" != "Not connected" ]]; then
+echo "║  Tailscale IP: $TAILSCALE_IP                              "
+echo "║  Access: http://$TAILSCALE_IP:3001/farm-attendance/       "
+fi
+if [[ -n "$FUNNEL_URL" && "$FUNNEL_URL" != "Not configured" ]]; then
 echo "║                                                           ║"
-echo "║  Useful commands:                                         ║"
-echo "║    pm2 status          - Check server status              ║"
-echo "║    pm2 logs farm-sync  - View server logs                 ║"
-echo "║    pm2 restart farm-sync - Restart server                 ║"
-echo "║    tailscale status    - Check Tailscale status           ║"
+echo "║  Public URL: ${FUNNEL_URL}farm-attendance/                "
+fi
 echo "║                                                           ║"
-echo "║  Auto-update:                                             ║"
-echo "║    Server checks GitHub every 6 hours                     ║"
+echo "║  Commands:                                                ║"
+echo "║    pm2 status           - Server status                   ║"
+echo "║    pm2 logs farm-sync   - View logs                       ║"
+echo "║    tailscale funnel 3001 - Enable public URL              ║"
+echo "║                                                           ║"
+echo "║  Auto-update: Checks GitHub every 6 hours                 ║"
 echo "║                                                           ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo ""
