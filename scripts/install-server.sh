@@ -7,6 +7,7 @@
 # - Auto-restart on crash
 # - Auto-restart on system boot
 # - Auto-update from GitHub
+# - Tailscale for secure remote access
 #
 # Usage:
 #   chmod +x scripts/install-server.sh
@@ -21,6 +22,17 @@ echo "╔═══════════════════════�
 echo "║     Farm Attendance Server Installation                    ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo ""
+
+# Check for Homebrew (macOS)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if ! command -v brew &> /dev/null; then
+        echo "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        echo "✓ Homebrew installed"
+    else
+        echo "✓ Homebrew found"
+    fi
+fi
 
 # Check for Node.js
 if ! command -v node &> /dev/null; then
@@ -94,25 +106,60 @@ echo "Setting up auto-start on system boot..."
 echo "You may be prompted for your password."
 pm2 startup
 
+# Install and setup Tailscale (macOS)
+echo ""
+echo "Setting up Tailscale for remote access..."
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if ! command -v tailscale &> /dev/null; then
+        echo "Installing Tailscale..."
+        brew install tailscale
+        echo "✓ Tailscale installed"
+    else
+        echo "✓ Tailscale already installed"
+    fi
+
+    # Check if Tailscale is running
+    if ! tailscale status &> /dev/null; then
+        echo ""
+        echo "Starting Tailscale..."
+        echo "Please complete the authentication in your browser."
+        brew services start tailscale
+        sleep 2
+        tailscale up
+    else
+        echo "✓ Tailscale is running"
+    fi
+
+    # Get Tailscale IP
+    TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "Not connected")
+
+    # Setup Tailscale Funnel
+    echo ""
+    echo "Setting up Tailscale Funnel for public HTTPS access..."
+    echo "(You may need to enable Funnel in Tailscale admin console first)"
+    tailscale funnel --bg 3001 2>/dev/null || echo "Note: Run 'tailscale funnel 3001' manually if needed"
+fi
+
 echo ""
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║     Installation Complete!                                 ║"
 echo "╠═══════════════════════════════════════════════════════════╣"
 echo "║                                                           ║"
-echo "║  Server running at: http://localhost:3001                 ║"
+echo "║  Server running at: http://localhost:3001/farm-attendance/║"
+echo "║                                                           ║"
+echo "║  Remote access (Tailscale):                               ║"
+echo "║    Tailscale IP: $TAILSCALE_IP                            "
+echo "║    Run: tailscale funnel 3001                             ║"
+echo "║    for public HTTPS URL                                   ║"
 echo "║                                                           ║"
 echo "║  Useful commands:                                         ║"
-echo "║    pm2 status       - Check server status                 ║"
-echo "║    pm2 logs farm-sync - View server logs                  ║"
+echo "║    pm2 status          - Check server status              ║"
+echo "║    pm2 logs farm-sync  - View server logs                 ║"
 echo "║    pm2 restart farm-sync - Restart server                 ║"
-echo "║    pm2 stop farm-sync - Stop server                       ║"
+echo "║    tailscale status    - Check Tailscale status           ║"
 echo "║                                                           ║"
 echo "║  Auto-update:                                             ║"
-echo "║    Server will check GitHub every 6 hours                 ║"
-echo "║    and auto-update when new version is available          ║"
-echo "║                                                           ║"
-echo "║  Manual update:                                           ║"
-echo "║    curl -X POST http://localhost:3001/api/update          ║"
+echo "║    Server checks GitHub every 6 hours                     ║"
 echo "║                                                           ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo ""
