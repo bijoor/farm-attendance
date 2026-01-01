@@ -7,7 +7,7 @@ import Select from '../components/ui/Select';
 import { exportToJson, shareViaWhatsApp, exportWorkersToExcel, exportAreasToExcel, exportActivitiesToExcel } from '../utils/exporters';
 import { importAppDataFromJson, importWorkersFromExcel, importAreasFromExcel, importActivitiesFromExcel } from '../utils/importers';
 import { getSyncUrl, setSyncUrl, checkServerStatus, syncData, pullData, getLastSync, formatLastSync, clearAllDirtyFlags } from '../utils/sync';
-import { Download, Upload, Share2, FileSpreadsheet, RefreshCw, AlertTriangle, Cloud, CloudOff, Loader2, Smartphone, Check } from 'lucide-react';
+import { Download, Upload, Share2, FileSpreadsheet, RefreshCw, AlertTriangle, Cloud, CloudOff, Loader2, Smartphone, Check, Server } from 'lucide-react';
 
 // PWA Install prompt interface
 interface BeforeInstallPromptEvent extends Event {
@@ -77,14 +77,31 @@ const Settings: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync] = useState(getLastSync());
 
+  // Server update state
+  const [serverVersion, setServerVersion] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
   // Check server status on mount and when URL changes
   useEffect(() => {
     const checkStatus = async () => {
       if (syncUrl) {
         const online = await checkServerStatus(syncUrl);
         setIsServerOnline(online);
+        // Fetch server version if online
+        if (online) {
+          try {
+            const res = await fetch(`${syncUrl}/api/version`);
+            if (res.ok) {
+              const data = await res.json();
+              setServerVersion(data.version);
+            }
+          } catch {
+            // Ignore version fetch errors
+          }
+        }
       } else {
         setIsServerOnline(null);
+        setServerVersion(null);
       }
     };
     checkStatus();
@@ -165,10 +182,50 @@ const Settings: React.FC = () => {
     setIsServerOnline(online);
     if (online) {
       setImportStatus({ type: 'success', message: isMarathi ? 'सर्व्हर ऑनलाइन आहे' : 'Server is online' });
+      // Also fetch version
+      try {
+        const res = await fetch(`${syncUrl}/api/version`);
+        if (res.ok) {
+          const data = await res.json();
+          setServerVersion(data.version);
+        }
+      } catch {
+        // Ignore
+      }
     } else {
       setImportStatus({ type: 'error', message: isMarathi ? 'सर्व्हर ऑफलाइन आहे' : 'Server is offline' });
     }
     setTimeout(() => setImportStatus(null), 3000);
+  };
+
+  const handleServerUpdate = async () => {
+    if (!syncUrl) return;
+
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`${syncUrl}/api/update`, { method: 'POST' });
+      if (res.ok) {
+        setImportStatus({
+          type: 'success',
+          message: isMarathi
+            ? 'सर्व्हर अपडेट सुरू झाले. सर्व्हर रीस्टार्ट होईल.'
+            : 'Server update triggered. Server will restart if update available.'
+        });
+      } else {
+        setImportStatus({
+          type: 'error',
+          message: isMarathi ? 'अपडेट अयशस्वी' : 'Update failed'
+        });
+      }
+    } catch {
+      setImportStatus({
+        type: 'error',
+        message: isMarathi ? 'सर्व्हरशी कनेक्ट होऊ शकले नाही' : 'Could not connect to server'
+      });
+    } finally {
+      setIsUpdating(false);
+      setTimeout(() => setImportStatus(null), 5000);
+    }
   };
 
   const handleExportJson = () => {
@@ -427,19 +484,51 @@ const Settings: React.FC = () => {
               {formatLastSync(lastSync, isMarathi)}
             </p>
           )}
-
-          <div className="bg-slate-50 rounded-lg p-4 text-sm">
-            <h4 className="font-medium text-slate-700 mb-2">
-              {isMarathi ? 'प्राथमिक डिव्हाइसवर सर्व्हर कसे चालवायचे:' : 'How to run server on primary device:'}
-            </h4>
-            <ol className="list-decimal list-inside space-y-1 text-slate-600">
-              <li><code className="bg-slate-200 px-1 rounded">npm run build</code></li>
-              <li><code className="bg-slate-200 px-1 rounded">node server.js</code></li>
-              <li><code className="bg-slate-200 px-1 rounded">cloudflared tunnel run --url http://localhost:3001</code></li>
-            </ol>
-          </div>
         </div>
       </div>
+
+      {/* Server Management */}
+      {syncUrl && isServerOnline && (
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Server size={20} className="text-graminno-600" />
+            <h2 className="text-lg font-semibold text-slate-800">
+              {isMarathi ? 'सर्व्हर व्यवस्थापन' : 'Server Management'}
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {serverVersion && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <span className="font-medium">{isMarathi ? 'सध्याची आवृत्ती:' : 'Current version:'}</span>
+                <span className="bg-slate-100 px-2 py-0.5 rounded font-mono">{serverVersion}</span>
+              </div>
+            )}
+
+            <p className="text-slate-600 text-sm">
+              {isMarathi
+                ? 'सर्व्हर दर 6 तासांनी GitHub वरून अपडेट तपासतो. तात्काळ अपडेट करण्यासाठी खालील बटण वापरा.'
+                : 'Server checks for updates from GitHub every 6 hours. Use the button below to trigger an immediate update check.'}
+            </p>
+
+            <Button
+              variant="secondary"
+              onClick={handleServerUpdate}
+              disabled={isUpdating}
+              className="flex items-center gap-2"
+            >
+              {isUpdating ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <RefreshCw size={18} />
+              )}
+              {isUpdating
+                ? (isMarathi ? 'अपडेट होत आहे...' : 'Updating...')
+                : (isMarathi ? 'सर्व्हर अपडेट करा' : 'Update Server')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Export Data */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
