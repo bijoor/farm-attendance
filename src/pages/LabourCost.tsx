@@ -239,19 +239,29 @@ const LabourCost: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="font-bold text-graminno-700">{formatCurrency(group.totalCost)}</div>
-                    <div className="text-xs text-slate-500">
-                      {groupPaid > 0 && (
-                        <span className={groupBalance <= 0 ? 'text-green-600' : 'text-yellow-600'}>
-                          {isMarathi ? 'भरले' : 'Paid'}: {formatCurrency(groupPaid)}
-                          {groupBalance > 0 && ` | ${isMarathi ? 'बाकी' : 'Due'}: ${formatCurrency(groupBalance)}`}
-                        </span>
-                      )}
-                      {groupPaid === 0 && (
-                        <span>
-                          {group.totalDays} {isMarathi ? 'दिवस' : 'days'} | {group.workers.length} {isMarathi ? 'कामगार' : 'workers'}
-                        </span>
-                      )}
+                    <div className="text-xs text-slate-500 mb-1">
+                      {group.totalDays} {isMarathi ? 'दिवस' : 'days'} | {group.workers.length} {isMarathi ? 'कामगार' : 'workers'}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <div className="text-slate-400">{isMarathi ? 'खर्च' : 'Cost'}</div>
+                        <div className="font-semibold text-slate-700">{formatCurrency(group.totalCost)}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-400">{isMarathi ? 'भरले' : 'Paid'}</div>
+                        <div className={`font-semibold ${groupPaid > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                          {formatCurrency(groupPaid)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-400">{isMarathi ? 'बाकी' : 'Due'}</div>
+                        <div className={`font-semibold ${
+                          groupBalance <= 0 ? 'text-green-600' :
+                          groupBalance < group.totalCost ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(groupBalance)}
+                        </div>
+                      </div>
                     </div>
                   </div>
                   {isExpanded ? (
