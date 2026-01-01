@@ -132,7 +132,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteWorker = (id: string) => {
     setData(prev => ({
       ...prev,
-      workers: prev.workers.filter(w => w.id !== id),
+      workers: prev.workers.map(w =>
+        w.id === id ? { ...w, deleted: true, deletedAt: new Date().toISOString() } : w
+      ),
     }));
   };
 
@@ -152,7 +154,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteArea = (id: string) => {
     setData(prev => ({
       ...prev,
-      areas: prev.areas.filter(a => a.id !== id),
+      areas: prev.areas.map(a =>
+        a.id === id ? { ...a, deleted: true, deletedAt: new Date().toISOString() } : a
+      ),
     }));
   };
 
@@ -172,7 +176,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteActivity = (id: string) => {
     setData(prev => ({
       ...prev,
-      activities: prev.activities.filter(a => a.id !== id),
+      activities: prev.activities.map(a =>
+        a.id === id ? { ...a, deleted: true, deletedAt: new Date().toISOString() } : a
+      ),
     }));
   };
 
