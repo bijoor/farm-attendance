@@ -23,6 +23,9 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
   const prevAreasRef = useRef<string>('');
   const prevActivitiesRef = useRef<string>('');
   const prevGroupsRef = useRef<string>('');
+  const prevExpenseCategoriesRef = useRef<string>('');
+  const prevExpensesRef = useRef<string>('');
+  const prevPaymentsRef = useRef<string>('');
   const prevMonthsRef = useRef<{ [key: string]: string }>({});
 
   const saveToServer = useCallback(async (dataToSave: AppData) => {
@@ -64,6 +67,9 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
     const areasStr = JSON.stringify(data.areas);
     const activitiesStr = JSON.stringify(data.activities);
     const groupsStr = JSON.stringify(data.groups || []);
+    const expenseCategoriesStr = JSON.stringify(data.expenseCategories || []);
+    const expensesStr = JSON.stringify(data.expenses || []);
+    const paymentsStr = JSON.stringify(data.payments || []);
 
     let hasChanges = false;
 
@@ -94,6 +100,27 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
       hasChanges = true;
     }
     prevGroupsRef.current = groupsStr;
+
+    // Check expense categories
+    if (expenseCategoriesStr !== prevExpenseCategoriesRef.current && prevExpenseCategoriesRef.current !== '') {
+      markFileDirty('expenseCategories');
+      hasChanges = true;
+    }
+    prevExpenseCategoriesRef.current = expenseCategoriesStr;
+
+    // Check expenses
+    if (expensesStr !== prevExpensesRef.current && prevExpensesRef.current !== '') {
+      markFileDirty('expenses');
+      hasChanges = true;
+    }
+    prevExpensesRef.current = expensesStr;
+
+    // Check payments
+    if (paymentsStr !== prevPaymentsRef.current && prevPaymentsRef.current !== '') {
+      markFileDirty('payments');
+      hasChanges = true;
+    }
+    prevPaymentsRef.current = paymentsStr;
 
     // Check each month
     for (const month of data.months) {
