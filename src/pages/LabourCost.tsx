@@ -9,7 +9,9 @@ import {
   formatCurrency,
   formatMonthYear,
 } from '../utils/calculations';
-import { Users2, ChevronDown, ChevronUp, IndianRupee } from 'lucide-react';
+import { Users2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, IndianRupee } from 'lucide-react';
+import Button from '../components/ui/Button';
+import { parseISO } from 'date-fns';
 
 const LabourCost: React.FC = () => {
   const { data, settings } = useApp();
@@ -31,6 +33,18 @@ const LabourCost: React.FC = () => {
     }
     return options;
   }, []);
+
+  const prevMonth = () => {
+    const date = parseISO(`${selectedMonth}-01`);
+    date.setMonth(date.getMonth() - 1);
+    setSelectedMonth(format(date, 'yyyy-MM'));
+  };
+
+  const nextMonth = () => {
+    const date = parseISO(`${selectedMonth}-01`);
+    date.setMonth(date.getMonth() + 1);
+    setSelectedMonth(format(date, 'yyyy-MM'));
+  };
 
   const labourCostData = calculateLabourCostByGroup(data, selectedMonth);
   const grandTotalCost = labourCostData.reduce((sum, g) => sum + g.totalCost, 0);
@@ -75,13 +89,22 @@ const LabourCost: React.FC = () => {
 
       {/* Month selector */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-6">
-        <Select
-          label={t('selectMonth')}
-          value={selectedMonth}
-          onChange={e => setSelectedMonth(e.target.value)}
-          options={monthOptions}
-          className="max-w-xs"
-        />
+        <div className="flex items-center justify-between gap-4">
+          <Button variant="ghost" onClick={prevMonth}>
+            <ChevronLeft size={20} />
+          </Button>
+
+          <Select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            options={monthOptions}
+            className="flex-1 max-w-xs"
+          />
+
+          <Button variant="ghost" onClick={nextMonth}>
+            <ChevronRight size={20} />
+          </Button>
+        </div>
       </div>
 
       {/* Grand Total Summary */}
