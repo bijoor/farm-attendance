@@ -23,5 +23,5 @@ dist-ssr
 *.sw?
 
 # Server data (user data - don't commit)
-data/
+/data/
 sync-data.json
