@@ -595,6 +595,122 @@ export const calculateMonthlyCostSummary = (
   return result;
 };
 
+/**
+ * Calculate opening balance for a group (sum of all unpaid amounts from previous months)
+ */
+export const calculateGroupOpeningBalance = (
+  data: AppData,
+  groupId: string,
+  upToMonth: string
+): { labourBalance: number; expenseBalance: number; totalBalance: number } => {
+  // Get all months that have data, sorted chronologically
+  const allMonths = new Set<string>();
+
+  // Collect months from attendance data
+  (data.months || []).forEach(m => {
+    if (m.month && m.month < upToMonth) {
+      allMonths.add(m.month);
+    }
+  });
+
+  // Collect months from expenses
+  (data.expenses || []).forEach(e => {
+    if (!e.deleted && e.month && e.month < upToMonth) {
+      allMonths.add(e.month);
+    }
+  });
+
+  // Collect months from payments
+  (data.payments || []).forEach(p => {
+    if (!p.deleted && p.month && p.month < upToMonth) {
+      allMonths.add(p.month);
+    }
+  });
+
+  let labourBalance = 0;
+  let expenseBalance = 0;
+
+  // Calculate balance for each previous month
+  for (const month of allMonths) {
+    const summary = calculateMonthlyCostSummary(data, month);
+    const groupSummary = summary.find(s => s.groupId === groupId);
+    if (groupSummary) {
+      labourBalance += groupSummary.labourBalance;
+      expenseBalance += groupSummary.expenseBalance;
+    }
+  }
+
+  return {
+    labourBalance,
+    expenseBalance,
+    totalBalance: labourBalance + expenseBalance,
+  };
+};
+
+/**
+ * Calculate full balance report for a group in a specific month
+ * Includes opening balance, current month activity, and closing balance
+ */
+export interface GroupMonthBalanceReport {
+  groupId: string;
+  groupName: string;
+  marathiName?: string;
+  openingBalance: number;
+  labourCost: number;
+  expenseCost: number;
+  totalCost: number;
+  labourPayments: number;
+  expensePayments: number;
+  totalPayments: number;
+  currentMonthBalance: number;
+  closingBalance: number;
+}
+
+export const calculateGroupMonthBalance = (
+  data: AppData,
+  month: string
+): GroupMonthBalanceReport[] => {
+  const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
+  const currentMonthSummary = calculateMonthlyCostSummary(data, month);
+
+  const result: GroupMonthBalanceReport[] = [];
+
+  for (const group of groups) {
+    const opening = calculateGroupOpeningBalance(data, group.id, month);
+    const current = currentMonthSummary.find(s => s.groupId === group.id);
+
+    const labourCost = current?.labourCost || 0;
+    const expenseCost = current?.expenseCost || 0;
+    const labourPayments = current?.labourPayments || 0;
+    const expensePayments = current?.expensePayments || 0;
+    const currentMonthBalance = (labourCost + expenseCost) - (labourPayments + expensePayments);
+
+    result.push({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      openingBalance: opening.totalBalance,
+      labourCost,
+      expenseCost,
+      totalCost: labourCost + expenseCost,
+      labourPayments,
+      expensePayments,
+      totalPayments: labourPayments + expensePayments,
+      currentMonthBalance,
+      closingBalance: opening.totalBalance + currentMonthBalance,
+    });
+  }
+
+  // Sort by group order
+  result.sort((a, b) => {
+    const groupA = groups.find(g => g.id === a.groupId);
+    const groupB = groups.find(g => g.id === b.groupId);
+    return (groupA?.order ?? 0) - (groupB?.order ?? 0);
+  });
+
+  return result;
+};
+
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
