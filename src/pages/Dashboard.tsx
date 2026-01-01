@@ -25,7 +25,7 @@ const Dashboard: React.FC = () => {
   const groupReport = calculateCostByGroupForMonth(data, currentMonth);
   const isMarathi = settings.language === 'mr';
 
-  const activeWorkers = data.workers.filter(w => w.status === 'active').length;
+  const activeWorkers = data.workers.filter(w => w.status === 'active' && !w.deleted).length;
   const totalAreas = data.areas.length;
   const activeGroups = (data.groups || []).filter(g => g.status === 'active' && !g.deleted).length;
 

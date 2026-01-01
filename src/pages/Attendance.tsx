@@ -57,7 +57,7 @@ const Attendance: React.FC = () => {
     return group.name || `${isMarathi ? 'गट' : 'Group'} ${fallbackIndex + 1}`;
   };
 
-  const allActiveWorkers = data.workers.filter(w => w.status === 'active');
+  const allActiveWorkers = data.workers.filter(w => w.status === 'active' && !w.deleted);
   const monthData = getMonthData(currentMonth);
   const monthGroups = getMonthGroups(currentMonth);
 

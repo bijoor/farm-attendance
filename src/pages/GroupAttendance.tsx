@@ -57,7 +57,7 @@ const GroupAttendance: React.FC = () => {
     ? (isMarathi && masterGroup.marathiName ? masterGroup.marathiName : masterGroup.name)
     : '';
 
-  const allActiveWorkers = data.workers.filter(w => w.status === 'active');
+  const allActiveWorkers = data.workers.filter(w => w.status === 'active' && !w.deleted);
   const monthData = getMonthData(currentMonth);
   const monthGroups = getMonthGroups(currentMonth);
 

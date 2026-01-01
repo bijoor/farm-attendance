@@ -35,17 +35,17 @@ const Print: React.FC = () => {
     return options;
   }, []);
 
-  const activeWorkers = data.workers.filter(w => w.status === 'active');
+  const activeWorkers = data.workers.filter(w => w.status === 'active' && !w.deleted);
   const days = getDaysArrayForMonth(selectedMonth);
   const monthData = getMonthData(selectedMonth);
 
   const handlePrint = () => {
-    const html = generatePrintableSheet(selectedMonth, data.workers, data.areas, data.activities, isMarathi);
+    const html = generatePrintableSheet(selectedMonth, activeWorkers, data.areas, data.activities, isMarathi);
     printSheet(html);
   };
 
   const handleExportExcel = () => {
-    exportMonthlyAttendanceToExcel(selectedMonth, data.workers, monthData);
+    exportMonthlyAttendanceToExcel(selectedMonth, activeWorkers, monthData);
   };
 
   return (
