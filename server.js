@@ -46,8 +46,11 @@ if (!existsSync(MONTHS_DIR)) mkdirSync(MONTHS_DIR, { recursive: true });
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Serve static files from dist folder (production build)
-app.use(express.static(join(__dirname, 'dist')));
+// Serve static files from docs folder (production build)
+// Note: Build outputs to 'docs/' for GitHub Pages compatibility
+app.use(express.static(join(__dirname, 'docs')));
+// Also serve under /farm-attendance/ path (for GitHub Pages base path compatibility)
+app.use('/farm-attendance', express.static(join(__dirname, 'docs')));
 
 // ============ File Operations ============
 
@@ -540,7 +543,7 @@ app.post('/api/force-update', async (req, res) => {
 
 // Fallback to index.html for SPA routing
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+  res.sendFile(join(__dirname, 'docs', 'index.html'));
 });
 
 app.listen(PORT, () => {
