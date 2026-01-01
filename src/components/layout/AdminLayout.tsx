@@ -50,7 +50,16 @@ const AdminLayout: React.FC = () => {
   ];
 
   const handleGoBack = () => {
-    navigate('/');
+    // Navigate to first active group's attendance page
+    const activeGroups = (data.groups || [])
+      .filter(g => g.status === 'active' && !g.deleted)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    if (activeGroups.length > 0) {
+      navigate(`/attendance/${activeGroups[0].id}`);
+    } else {
+      navigate('/');
+    }
   };
 
   const closeSidebar = () => setSidebarOpen(false);
