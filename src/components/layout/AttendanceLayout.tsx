@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../data/translations';
@@ -22,6 +22,31 @@ const AttendanceLayout: React.FC = () => {
   const t = useTranslation(settings.language);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMarathi = settings.language === 'mr';
+
+  // Secret admin access: tap logo 5 times quickly
+  const tapCountRef = useRef(0);
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSecretTap = () => {
+    tapCountRef.current += 1;
+
+    // Reset timeout on each tap
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current);
+    }
+
+    // If 5 taps within 2 seconds, go to admin
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      navigate('/admin');
+      return;
+    }
+
+    // Reset count after 2 seconds of no taps
+    tapTimeoutRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+    }, 2000);
+  };
 
   // Auto-sync when data changes
   const syncUrl = getSyncUrl();
@@ -79,7 +104,10 @@ const AttendanceLayout: React.FC = () => {
           <Menu size={24} />
         </button>
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold">ग्रामीनो</h1>
+          <h1
+            className="text-lg font-semibold cursor-pointer select-none"
+            onClick={handleSecretTap}
+          >ग्रामीनो</h1>
           {syncUrl && (
             <span title="Auto-sync enabled">
               <Cloud size={16} className="text-graminno-200" />
@@ -114,7 +142,10 @@ const AttendanceLayout: React.FC = () => {
       >
         {/* Sidebar Header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-graminno-500">
-          <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2 cursor-pointer select-none"
+            onClick={handleSecretTap}
+          >
             <span className="text-2xl font-bold">ग्रा</span>
             <div className="flex flex-col leading-none">
               <span className="text-sm">ग्रामीनो</span>
