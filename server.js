@@ -231,7 +231,7 @@ async function performUpdate() {
 
     // Install dependencies if package.json changed
     console.log('Installing dependencies...');
-    execSync('npm install --production', { cwd: __dirname, stdio: 'inherit' });
+    execSync('npm install', { cwd: __dirname, stdio: 'inherit' });
 
     // Build the frontend
     console.log('Building frontend...');

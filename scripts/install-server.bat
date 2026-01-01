@@ -65,10 +65,10 @@ if %ERRORLEVEL% NEQ 0 (
     echo [OK] PM2 already installed: %PM2_VERSION%
 )
 
-REM Install project dependencies
+REM Install project dependencies (including devDependencies for build)
 echo.
 echo Installing project dependencies...
-call npm install --production
+call npm install
 echo [OK] Dependencies installed
 
 REM Build the frontend

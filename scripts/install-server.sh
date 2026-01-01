@@ -60,10 +60,10 @@ else
     echo "✓ PM2 already installed: $(pm2 -v)"
 fi
 
-# Install project dependencies
+# Install project dependencies (including devDependencies for build)
 echo ""
 echo "Installing project dependencies..."
-npm install --production
+npm install
 echo "✓ Dependencies installed"
 
 # Build the frontend
