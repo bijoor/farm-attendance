@@ -149,7 +149,10 @@ const LabourCost: React.FC = () => {
           <div className="mb-3 pb-3 border-b border-graminno-500">
             <div className="text-xs opacity-70">{isMarathi ? 'मागील बाकी' : 'Opening Balance'}</div>
             <div className={`text-xl font-semibold ${grandTotals.openingBalance > 0 ? 'text-red-300' : 'text-green-300'}`}>
-              {formatCurrency(grandTotals.openingBalance)}
+              {grandTotals.openingBalance < 0
+                ? `${formatCurrency(Math.abs(grandTotals.openingBalance))} ${isMarathi ? '(जमा)' : '(Credit)'}`
+                : formatCurrency(grandTotals.openingBalance)
+              }
             </div>
           </div>
         )}
@@ -174,9 +177,17 @@ const LabourCost: React.FC = () => {
         <div className="pt-3 border-t border-graminno-500">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs opacity-70">{isMarathi ? 'एकूण बाकी' : 'Total Balance Due'}</div>
+              <div className="text-xs opacity-70">
+                {grandTotals.closingBalance < 0
+                  ? (isMarathi ? 'एकूण जमा (क्रेडिट)' : 'Total Credit')
+                  : (isMarathi ? 'एकूण बाकी' : 'Total Balance Due')
+                }
+              </div>
               <div className={`text-2xl font-bold ${grandTotals.closingBalance <= 0 ? 'text-green-300' : ''}`}>
-                {formatCurrency(grandTotals.closingBalance)}
+                {grandTotals.closingBalance < 0
+                  ? formatCurrency(Math.abs(grandTotals.closingBalance))
+                  : formatCurrency(grandTotals.closingBalance)
+                }
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -276,7 +287,12 @@ const LabourCost: React.FC = () => {
                     {/* Opening balance if any */}
                     {group.openingBalance !== 0 && (
                       <div className="text-xs text-slate-500 mb-1">
-                        {isMarathi ? 'मागील बाकी' : 'Opening'}: <span className={group.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}>{formatCurrency(group.openingBalance)}</span>
+                        {isMarathi ? 'मागील' : 'Opening'}: <span className={group.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}>
+                          {group.openingBalance < 0
+                            ? `${formatCurrency(Math.abs(group.openingBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                            : formatCurrency(group.openingBalance)
+                          }
+                        </span>
                       </div>
                     )}
                     <div className="grid grid-cols-4 gap-2 text-xs">
@@ -295,12 +311,14 @@ const LabourCost: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <div className="text-slate-400">{isMarathi ? 'बाकी' : 'Due'}</div>
+                        <div className="text-slate-400">
+                          {group.closingBalance < 0 ? (isMarathi ? 'जमा' : 'Credit') : (isMarathi ? 'बाकी' : 'Due')}
+                        </div>
                         <div className={`font-semibold ${
                           group.closingBalance <= 0 ? 'text-green-600' :
                           group.closingBalance < group.totalCost + group.openingBalance ? 'text-yellow-600' : 'text-red-600'
                         }`}>
-                          {formatCurrency(group.closingBalance)}
+                          {formatCurrency(Math.abs(group.closingBalance))}
                         </div>
                       </div>
                     </div>
@@ -381,18 +399,31 @@ const LabourCost: React.FC = () => {
         } text-white`}>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm opacity-80 mb-1">{isMarathi ? 'एकूण बाकी' : 'Total Balance Due'}</div>
-              <div className="text-2xl font-bold">{formatCurrency(grandTotals.closingBalance)}</div>
+              <div className="text-sm opacity-80 mb-1">
+                {grandTotals.closingBalance < 0
+                  ? (isMarathi ? 'एकूण जमा' : 'Total Credit')
+                  : (isMarathi ? 'एकूण बाकी' : 'Total Balance Due')
+                }
+              </div>
+              <div className="text-2xl font-bold">{formatCurrency(Math.abs(grandTotals.closingBalance))}</div>
               {grandTotals.closingBalance <= 0 && (
                 <div className="flex items-center gap-1 mt-1 text-sm">
                   <CheckCircle size={16} />
-                  {isMarathi ? 'सर्व पेमेंट पूर्ण' : 'All payments complete'}
+                  {grandTotals.closingBalance < 0
+                    ? (isMarathi ? 'अग्रिम शिल्लक आहे' : 'Advance balance available')
+                    : (isMarathi ? 'सर्व पेमेंट पूर्ण' : 'All payments complete')
+                  }
                 </div>
               )}
             </div>
             <div className="text-right text-sm">
               {grandTotals.openingBalance !== 0 && (
-                <div className="opacity-80">{isMarathi ? 'मागील बाकी' : 'Opening'}: {formatCurrency(grandTotals.openingBalance)}</div>
+                <div className="opacity-80">
+                  {isMarathi ? 'मागील' : 'Opening'}: {grandTotals.openingBalance < 0
+                    ? `${formatCurrency(Math.abs(grandTotals.openingBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                    : formatCurrency(grandTotals.openingBalance)
+                  }
+                </div>
               )}
               <div className="opacity-80">{isMarathi ? 'या महिन्याचे' : 'This month'}: {formatCurrency(grandTotals.totalCost)}</div>
               <div className="opacity-80">{isMarathi ? 'भरलेले' : 'Paid'}: {formatCurrency(grandTotals.totalPayments)}</div>
