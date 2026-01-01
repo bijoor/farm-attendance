@@ -9,7 +9,7 @@ import {
   formatCurrency,
   formatMonthYear,
 } from '../utils/calculations';
-import { Users2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, IndianRupee } from 'lucide-react';
+import { Users2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, IndianRupee, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { parseISO } from 'date-fns';
 
@@ -49,6 +49,21 @@ const LabourCost: React.FC = () => {
   const labourCostData = calculateLabourCostByGroup(data, selectedMonth);
   const grandTotalCost = labourCostData.reduce((sum, g) => sum + g.totalCost, 0);
   const grandTotalDays = labourCostData.reduce((sum, g) => sum + g.totalDays, 0);
+
+  // Calculate payments for each group
+  const groupPayments = useMemo(() => {
+    const payments = (data.payments || []).filter(
+      p => !p.deleted && p.month === selectedMonth && p.paymentFor === 'labour'
+    );
+    const paymentsByGroup: { [groupId: string]: number } = {};
+    payments.forEach(p => {
+      paymentsByGroup[p.groupId] = (paymentsByGroup[p.groupId] || 0) + p.amount;
+    });
+    return paymentsByGroup;
+  }, [data.payments, selectedMonth]);
+
+  const grandTotalPaid = Object.values(groupPayments).reduce((sum, amt) => sum + amt, 0);
+  const grandTotalBalance = grandTotalCost - grandTotalPaid;
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => {
@@ -117,6 +132,38 @@ const LabourCost: React.FC = () => {
         <div className="text-sm opacity-80 mt-2">
           {grandTotalDays} {isMarathi ? 'एकूण दिवस' : 'total days'} | {labourCostData.length} {isMarathi ? 'गट' : 'groups'}
         </div>
+        {/* Payment summary */}
+        <div className="mt-4 pt-4 border-t border-graminno-500 grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-xs opacity-70">{isMarathi ? 'भरले' : 'Paid'}</div>
+            <div className="text-lg font-semibold">{formatCurrency(grandTotalPaid)}</div>
+          </div>
+          <div>
+            <div className="text-xs opacity-70">{isMarathi ? 'बाकी' : 'Balance'}</div>
+            <div className="text-lg font-semibold">{formatCurrency(grandTotalBalance)}</div>
+          </div>
+          <div>
+            <div className="text-xs opacity-70">{isMarathi ? 'स्थिती' : 'Status'}</div>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              {grandTotalBalance <= 0 ? (
+                <>
+                  <CheckCircle size={16} />
+                  <span className="text-sm">{isMarathi ? 'पूर्ण' : 'Paid'}</span>
+                </>
+              ) : grandTotalPaid > 0 ? (
+                <>
+                  <Clock size={16} className="text-yellow-300" />
+                  <span className="text-sm">{isMarathi ? 'अंशतः' : 'Partial'}</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle size={16} className="text-red-300" />
+                  <span className="text-sm">{isMarathi ? 'प्रलंबित' : 'Pending'}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Expand/Collapse buttons */}
@@ -154,6 +201,9 @@ const LabourCost: React.FC = () => {
       <div className="space-y-4">
         {labourCostData.map(group => {
           const isExpanded = expandedGroups.has(group.groupId);
+          const groupPaid = groupPayments[group.groupId] || 0;
+          const groupBalance = group.totalCost - groupPaid;
+          const paymentStatus = groupBalance <= 0 ? 'paid' : groupPaid > 0 ? 'partial' : 'pending';
 
           return (
             <div key={group.groupId} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
@@ -163,8 +213,17 @@ const LabourCost: React.FC = () => {
                 className="w-full px-4 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-graminno-100 rounded-lg">
-                    <Users2 className="h-5 w-5 text-graminno-600" />
+                  <div className={`p-2 rounded-lg ${
+                    paymentStatus === 'paid' ? 'bg-green-100' :
+                    paymentStatus === 'partial' ? 'bg-yellow-100' : 'bg-graminno-100'
+                  }`}>
+                    {paymentStatus === 'paid' ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : paymentStatus === 'partial' ? (
+                      <Clock className="h-5 w-5 text-yellow-600" />
+                    ) : (
+                      <Users2 className="h-5 w-5 text-graminno-600" />
+                    )}
                   </div>
                   <div className="text-left">
                     <div className="font-semibold text-slate-800">
@@ -182,7 +241,17 @@ const LabourCost: React.FC = () => {
                   <div className="text-right">
                     <div className="font-bold text-graminno-700">{formatCurrency(group.totalCost)}</div>
                     <div className="text-xs text-slate-500">
-                      {group.totalDays} {isMarathi ? 'दिवस' : 'days'} | {group.workers.length} {isMarathi ? 'कामगार' : 'workers'}
+                      {groupPaid > 0 && (
+                        <span className={groupBalance <= 0 ? 'text-green-600' : 'text-yellow-600'}>
+                          {isMarathi ? 'भरले' : 'Paid'}: {formatCurrency(groupPaid)}
+                          {groupBalance > 0 && ` | ${isMarathi ? 'बाकी' : 'Due'}: ${formatCurrency(groupBalance)}`}
+                        </span>
+                      )}
+                      {groupPaid === 0 && (
+                        <span>
+                          {group.totalDays} {isMarathi ? 'दिवस' : 'days'} | {group.workers.length} {isMarathi ? 'कामगार' : 'workers'}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {isExpanded ? (
@@ -251,15 +320,24 @@ const LabourCost: React.FC = () => {
 
       {/* Grand total footer */}
       {labourCostData.length > 0 && (
-        <div className="mt-6 bg-slate-800 text-white rounded-xl p-6 shadow-sm">
+        <div className={`mt-6 rounded-xl p-6 shadow-sm ${
+          grandTotalBalance <= 0 ? 'bg-green-700' : grandTotalPaid > 0 ? 'bg-yellow-600' : 'bg-slate-800'
+        } text-white`}>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm opacity-80 mb-1">{isMarathi ? 'एकूण देय रक्कम' : 'Total Payable Amount'}</div>
-              <div className="text-2xl font-bold">{formatCurrency(grandTotalCost)}</div>
+              <div className="text-sm opacity-80 mb-1">{isMarathi ? 'बाकी रक्कम' : 'Balance Due'}</div>
+              <div className="text-2xl font-bold">{formatCurrency(grandTotalBalance)}</div>
+              {grandTotalBalance <= 0 && (
+                <div className="flex items-center gap-1 mt-1 text-sm">
+                  <CheckCircle size={16} />
+                  {isMarathi ? 'सर्व पेमेंट पूर्ण' : 'All payments complete'}
+                </div>
+              )}
             </div>
             <div className="text-right">
-              <div className="text-sm opacity-80">{isMarathi ? 'एकूण दिवस' : 'Total Days'}</div>
-              <div className="text-xl font-semibold">{grandTotalDays}</div>
+              <div className="text-sm opacity-80">{isMarathi ? 'एकूण खर्च' : 'Total Cost'}</div>
+              <div className="text-lg font-semibold">{formatCurrency(grandTotalCost)}</div>
+              <div className="text-sm opacity-80 mt-1">{isMarathi ? 'भरलेले' : 'Paid'}: {formatCurrency(grandTotalPaid)}</div>
             </div>
           </div>
         </div>
