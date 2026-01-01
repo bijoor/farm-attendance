@@ -42,11 +42,13 @@ const Areas: React.FC = () => {
     return area.name;
   };
 
-  const filteredAreas = data.areas.filter(area =>
-    area.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    area.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (area.marathiName && area.marathiName.includes(searchQuery))
-  );
+  const filteredAreas = data.areas.filter(area => {
+    // Exclude soft-deleted areas
+    if (area.deleted) return false;
+    return area.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      area.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (area.marathiName && area.marathiName.includes(searchQuery));
+  });
 
   const openAddModal = () => {
     setEditingArea(null);

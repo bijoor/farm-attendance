@@ -7,6 +7,8 @@ export interface Worker {
   status: 'active' | 'inactive';
   joinedDate?: string;
   notes?: string;
+  deleted?: boolean;      // Soft delete flag for sync
+  deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
 
 // Area types
@@ -18,6 +20,8 @@ export interface Area {
   marathiName?: string;   // Marathi name
   description?: string;
   groupId?: string;       // Reference to the group/farm this area belongs to
+  deleted?: boolean;      // Soft delete flag for sync
+  deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
 
 // Activity types
@@ -28,6 +32,8 @@ export interface Activity {
   name: string;           // English name
   marathiName?: string;   // Marathi name
   category?: string;
+  deleted?: boolean;      // Soft delete flag for sync
+  deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
 
 // Group types (master data for reusable groups)
@@ -39,6 +45,64 @@ export interface Group {
   order?: number;         // Display order (lower numbers appear first)
   deleted?: boolean;      // Soft delete flag for sync
   deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
+}
+
+// Expense Category (master data for categorizing sundry expenses)
+export interface ExpenseCategory {
+  id: string;
+  code: string;           // Short code (e.g., "FEED", "FUEL")
+  marathiCode?: string;
+  name: string;           // English name
+  marathiName?: string;
+  status: 'active' | 'inactive';
+  deleted?: boolean;
+  deletedAt?: string;
+}
+
+// Allocation for shared expenses
+export interface GroupAllocation {
+  groupId: string;
+  amount?: number;        // Fixed amount OR
+  percentage?: number;    // Percentage (0-100)
+}
+
+// Sundry Expense Entry
+export interface SundryExpense {
+  id: string;
+  date: string;           // "YYYY-MM-DD"
+  month: string;          // "YYYY-MM" for grouping
+  categoryId?: string;    // Reference to ExpenseCategory
+  description: string;
+  amount: number;
+  // Group assignment
+  groupId?: string;       // Primary group (for single-group expenses)
+  isShared?: boolean;     // If true, use allocations
+  allocations?: GroupAllocation[];  // For shared expenses
+  // Metadata
+  notes?: string;
+  createdAt: string;
+  modifiedAt?: string;
+  deleted?: boolean;
+  deletedAt?: string;
+}
+
+// Payment Entry
+export interface Payment {
+  id: string;
+  date: string;           // "YYYY-MM-DD"
+  month: string;          // "YYYY-MM" for grouping
+  amount: number;
+  // What is this payment for?
+  paymentFor: 'labour' | 'expense';
+  groupId: string;        // Which group this payment is for
+  expenseId?: string;     // If paymentFor='expense', link to specific expense
+  // Metadata
+  description?: string;
+  notes?: string;
+  createdAt: string;
+  modifiedAt?: string;
+  deleted?: boolean;
+  deletedAt?: string;
 }
 
 // Attendance types
@@ -90,6 +154,10 @@ export interface AppData {
   activities: Activity[];
   groups: Group[];
   months: MonthData[];
+  // Accounting
+  expenseCategories: ExpenseCategory[];
+  expenses: SundryExpense[];
+  payments: Payment[];
   exportedAt?: string;
   version?: string;
 }

@@ -35,11 +35,13 @@ const Activities: React.FC = () => {
     return activity.name;
   };
 
-  const filteredActivities = data.activities.filter(activity =>
-    activity.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    activity.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (activity.marathiName && activity.marathiName.includes(searchQuery))
-  );
+  const filteredActivities = data.activities.filter(activity => {
+    // Exclude soft-deleted activities
+    if (activity.deleted) return false;
+    return activity.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      activity.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (activity.marathiName && activity.marathiName.includes(searchQuery));
+  });
 
   // Group by category
   const categories = [...new Set(data.activities.map(a => a.category || 'Other'))];

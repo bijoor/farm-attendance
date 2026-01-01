@@ -13,6 +13,10 @@ import Print from './pages/Print';
 import Reports from './pages/Reports';
 import LabourCost from './pages/LabourCost';
 import Settings from './pages/Settings';
+import ExpenseCategories from './pages/ExpenseCategories';
+import Expenses from './pages/Expenses';
+import Payments from './pages/Payments';
+import FarmExpenses from './pages/FarmExpenses';
 
 function App() {
   return (
@@ -28,6 +32,7 @@ function App() {
             <Route path="attendance/:groupId" element={<GroupAttendance />} />
             <Route path="print" element={<Print />} />
             <Route path="labour-cost" element={<LabourCost />} />
+            <Route path="expenses" element={<FarmExpenses />} />
           </Route>
 
           {/* Admin interface (hidden URL) */}
@@ -37,6 +42,9 @@ function App() {
             <Route path="groups" element={<Groups />} />
             <Route path="areas" element={<Areas />} />
             <Route path="activities" element={<Activities />} />
+            <Route path="expense-categories" element={<ExpenseCategories />} />
+            <Route path="expenses" element={<Expenses />} />
+            <Route path="payments" element={<Payments />} />
             <Route path="reports" element={<Reports />} />
             <Route path="labour-cost" element={<LabourCost />} />
             <Route path="settings" element={<Settings />} />

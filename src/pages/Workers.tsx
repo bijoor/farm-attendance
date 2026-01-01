@@ -39,6 +39,8 @@ const Workers: React.FC = () => {
   };
 
   const filteredWorkers = data.workers.filter(worker => {
+    // Exclude soft-deleted workers
+    if (worker.deleted) return false;
     const matchesSearch =
       worker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (worker.marathiName && worker.marathiName.includes(searchQuery));

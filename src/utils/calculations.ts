@@ -373,6 +373,228 @@ export const calculateLabourCostByGroup = (
   return result;
 };
 
+// ============ Expense & Payment Calculations ============
+
+export interface GroupExpenseSummary {
+  groupId: string;
+  groupName: string;
+  marathiName?: string;
+  directExpenses: number;      // Expenses directly assigned to this group
+  sharedExpenses: number;      // This group's share of shared expenses
+  totalExpenses: number;       // Direct + Shared
+  expenses: {
+    id: string;
+    date: string;
+    description: string;
+    amount: number;
+    isShared: boolean;
+    allocatedAmount?: number;  // For shared expenses
+  }[];
+}
+
+export interface GroupPaymentSummary {
+  groupId: string;
+  groupName: string;
+  marathiName?: string;
+  labourPayments: number;
+  expensePayments: number;
+  totalPayments: number;
+  payments: {
+    id: string;
+    date: string;
+    amount: number;
+    paymentFor: 'labour' | 'expense';
+    description?: string;
+  }[];
+}
+
+export interface GroupCostSummary {
+  groupId: string;
+  groupName: string;
+  marathiName?: string;
+  labourCost: number;
+  expenseCost: number;
+  totalCost: number;
+  labourPayments: number;
+  expensePayments: number;
+  totalPayments: number;
+  labourBalance: number;       // labourCost - labourPayments
+  expenseBalance: number;      // expenseCost - expensePayments
+  totalBalance: number;        // totalCost - totalPayments
+}
+
+export const calculateExpensesByGroup = (
+  data: AppData,
+  month: string
+): GroupExpenseSummary[] => {
+  const expenses = (data.expenses || []).filter(e => e.month === month && !e.deleted);
+  const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
+
+  const result: GroupExpenseSummary[] = [];
+
+  for (const group of groups) {
+    let directExpenses = 0;
+    let sharedExpenses = 0;
+    const expenseList: GroupExpenseSummary['expenses'] = [];
+
+    for (const expense of expenses) {
+      // Direct expense
+      if (expense.groupId === group.id && !expense.isShared) {
+        directExpenses += expense.amount;
+        expenseList.push({
+          id: expense.id,
+          date: expense.date,
+          description: expense.description,
+          amount: expense.amount,
+          isShared: false,
+        });
+      }
+
+      // Shared expense
+      if (expense.isShared && expense.allocations) {
+        const allocation = expense.allocations.find(a => a.groupId === group.id);
+        if (allocation) {
+          let allocatedAmount = 0;
+          if (allocation.percentage !== undefined) {
+            allocatedAmount = (expense.amount * allocation.percentage) / 100;
+          } else if (allocation.amount !== undefined) {
+            allocatedAmount = allocation.amount;
+          }
+          sharedExpenses += allocatedAmount;
+          expenseList.push({
+            id: expense.id,
+            date: expense.date,
+            description: expense.description,
+            amount: expense.amount,
+            isShared: true,
+            allocatedAmount,
+          });
+        }
+      }
+    }
+
+    result.push({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      directExpenses,
+      sharedExpenses,
+      totalExpenses: directExpenses + sharedExpenses,
+      expenses: expenseList.sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
+  // Sort by group order
+  result.sort((a, b) => {
+    const groupA = groups.find(g => g.id === a.groupId);
+    const groupB = groups.find(g => g.id === b.groupId);
+    return (groupA?.order ?? 0) - (groupB?.order ?? 0);
+  });
+
+  return result;
+};
+
+export const calculatePaymentsByGroup = (
+  data: AppData,
+  month: string
+): GroupPaymentSummary[] => {
+  const payments = (data.payments || []).filter(p => p.month === month && !p.deleted);
+  const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
+
+  const result: GroupPaymentSummary[] = [];
+
+  for (const group of groups) {
+    const groupPayments = payments.filter(p => p.groupId === group.id);
+    const labourPayments = groupPayments
+      .filter(p => p.paymentFor === 'labour')
+      .reduce((sum, p) => sum + p.amount, 0);
+    const expensePayments = groupPayments
+      .filter(p => p.paymentFor === 'expense')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    result.push({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      labourPayments,
+      expensePayments,
+      totalPayments: labourPayments + expensePayments,
+      payments: groupPayments.map(p => ({
+        id: p.id,
+        date: p.date,
+        amount: p.amount,
+        paymentFor: p.paymentFor,
+        description: p.description,
+      })).sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
+  // Sort by group order
+  result.sort((a, b) => {
+    const groupA = groups.find(g => g.id === a.groupId);
+    const groupB = groups.find(g => g.id === b.groupId);
+    return (groupA?.order ?? 0) - (groupB?.order ?? 0);
+  });
+
+  return result;
+};
+
+export const calculateMonthlyCostSummary = (
+  data: AppData,
+  month: string
+): GroupCostSummary[] => {
+  const labourCosts = calculateLabourCostByGroup(data, month);
+  const expenseSummaries = calculateExpensesByGroup(data, month);
+  const paymentSummaries = calculatePaymentsByGroup(data, month);
+
+  const result: GroupCostSummary[] = [];
+
+  // Get unique groups from all sources
+  const groupIds = new Set<string>();
+  labourCosts.forEach(lc => groupIds.add(lc.groupId));
+  expenseSummaries.forEach(es => groupIds.add(es.groupId));
+  paymentSummaries.forEach(ps => groupIds.add(ps.groupId));
+
+  for (const groupId of groupIds) {
+    const labour = labourCosts.find(lc => lc.groupId === groupId);
+    const expense = expenseSummaries.find(es => es.groupId === groupId);
+    const payment = paymentSummaries.find(ps => ps.groupId === groupId);
+
+    const labourCost = labour?.totalCost || 0;
+    const expenseCost = expense?.totalExpenses || 0;
+    const labourPayments = payment?.labourPayments || 0;
+    const expensePayments = payment?.expensePayments || 0;
+
+    // Get group info from any available source
+    const groupInfo = labour || expense || payment;
+
+    result.push({
+      groupId,
+      groupName: groupInfo?.groupName || '',
+      marathiName: groupInfo?.marathiName,
+      labourCost,
+      expenseCost,
+      totalCost: labourCost + expenseCost,
+      labourPayments,
+      expensePayments,
+      totalPayments: labourPayments + expensePayments,
+      labourBalance: labourCost - labourPayments,
+      expenseBalance: expenseCost - expensePayments,
+      totalBalance: (labourCost + expenseCost) - (labourPayments + expensePayments),
+    });
+  }
+
+  // Sort by group order
+  const groups = (data.groups || []);
+  result.sort((a, b) => {
+    const groupA = groups.find(g => g.id === a.groupId);
+    const groupB = groups.find(g => g.id === b.groupId);
+    return (groupA?.order ?? 0) - (groupB?.order ?? 0);
+  });
+
+  return result;
+};
+
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',

@@ -5,7 +5,7 @@
  * Each data type (workers, areas, activities, months) is synced separately.
  */
 
-import type { AppData, Worker, Area, Activity, Group, MonthData } from '../types';
+import type { AppData, Worker, Area, Activity, Group, MonthData, ExpenseCategory, SundryExpense, Payment } from '../types';
 
 const SYNC_URL_KEY = 'graminno-sync-url';
 const SYNC_STATUS_KEY = 'graminno-sync-status';
@@ -28,6 +28,9 @@ export interface SyncStatus {
   areas: FileSyncStatus;
   activities: FileSyncStatus;
   groups: FileSyncStatus;
+  expenseCategories: FileSyncStatus;
+  expenses: FileSyncStatus;
+  payments: FileSyncStatus;
   months: { [month: string]: FileSyncStatus };
   lastFullSync: string | null;
 }
@@ -43,6 +46,9 @@ const defaultSyncStatus: SyncStatus = {
   areas: { ...defaultFileSyncStatus },
   activities: { ...defaultFileSyncStatus },
   groups: { ...defaultFileSyncStatus },
+  expenseCategories: { ...defaultFileSyncStatus },
+  expenses: { ...defaultFileSyncStatus },
+  payments: { ...defaultFileSyncStatus },
   months: {},
   lastFullSync: null,
 };
@@ -65,7 +71,7 @@ export function saveSyncStatus(status: SyncStatus): void {
   localStorage.setItem(SYNC_STATUS_KEY, JSON.stringify(status));
 }
 
-export function markFileDirty(fileType: 'workers' | 'areas' | 'activities' | 'groups', status?: SyncStatus): SyncStatus {
+export function markFileDirty(fileType: 'workers' | 'areas' | 'activities' | 'groups' | 'expenseCategories' | 'expenses' | 'payments', status?: SyncStatus): SyncStatus {
   const current = status || getSyncStatus();
   current[fileType] = {
     ...current[fileType],
@@ -87,7 +93,7 @@ export function markMonthDirty(month: string, status?: SyncStatus): SyncStatus {
   return current;
 }
 
-export function markFileSynced(fileType: 'workers' | 'areas' | 'activities' | 'groups', status?: SyncStatus): SyncStatus {
+export function markFileSynced(fileType: 'workers' | 'areas' | 'activities' | 'groups' | 'expenseCategories' | 'expenses' | 'payments', status?: SyncStatus): SyncStatus {
   const current = status || getSyncStatus();
   const now = new Date().toISOString();
   current[fileType] = {
@@ -113,7 +119,8 @@ export function markMonthSynced(month: string, status?: SyncStatus): SyncStatus 
 
 export function hasDirtyFiles(): boolean {
   const status = getSyncStatus();
-  if (status.workers.dirty || status.areas.dirty || status.activities.dirty || status.groups.dirty) {
+  if (status.workers.dirty || status.areas.dirty || status.activities.dirty || status.groups.dirty ||
+      status.expenseCategories.dirty || status.expenses.dirty || status.payments.dirty) {
     return true;
   }
   for (const month of Object.values(status.months)) {
@@ -129,6 +136,9 @@ export function clearAllDirtyFlags(): void {
   status.areas = { ...status.areas, dirty: false, lastSynced: now };
   status.activities = { ...status.activities, dirty: false, lastSynced: now };
   status.groups = { ...status.groups, dirty: false, lastSynced: now };
+  status.expenseCategories = { ...status.expenseCategories, dirty: false, lastSynced: now };
+  status.expenses = { ...status.expenses, dirty: false, lastSynced: now };
+  status.payments = { ...status.payments, dirty: false, lastSynced: now };
   status.lastFullSync = now;
   for (const month of Object.keys(status.months)) {
     status.months[month] = { ...status.months[month], dirty: false, lastSynced: now };
@@ -143,6 +153,9 @@ export function getDirtyFiles(): string[] {
   if (status.areas.dirty) dirty.push('areas');
   if (status.activities.dirty) dirty.push('activities');
   if (status.groups.dirty) dirty.push('groups');
+  if (status.expenseCategories.dirty) dirty.push('expenseCategories');
+  if (status.expenses.dirty) dirty.push('expenses');
+  if (status.payments.dirty) dirty.push('payments');
   for (const [month, monthStatus] of Object.entries(status.months)) {
     if (monthStatus.dirty) dirty.push(`months/${month}`);
   }
@@ -187,7 +200,7 @@ export async function checkServerStatus(url?: string): Promise<boolean> {
 // ============ Per-File Sync Functions ============
 
 async function syncFile<T>(
-  fileType: 'workers' | 'areas' | 'activities' | 'groups',
+  fileType: 'workers' | 'areas' | 'activities' | 'groups' | 'expenseCategories' | 'expenses' | 'payments',
   localData: T[],
   onSuccess: (data: T[]) => void
 ): Promise<{ success: boolean; message: string }> {
@@ -258,7 +271,7 @@ async function syncMonth(
 // ============ Pull Functions ============
 
 export async function pullFile<T>(
-  fileType: 'workers' | 'areas' | 'activities' | 'groups'
+  fileType: 'workers' | 'areas' | 'activities' | 'groups' | 'expenseCategories' | 'expenses' | 'payments'
 ): Promise<{ success: boolean; data?: T[]; message: string }> {
   const syncUrl = getSyncUrl();
   if (!syncUrl) return { success: false, message: 'No sync URL' };
@@ -318,6 +331,9 @@ export interface SmartSyncCallbacks {
   onAreasSync?: (areas: Area[]) => void;
   onActivitiesSync?: (activities: Activity[]) => void;
   onGroupsSync?: (groups: Group[]) => void;
+  onExpenseCategoriesSync?: (categories: ExpenseCategory[]) => void;
+  onExpensesSync?: (expenses: SundryExpense[]) => void;
+  onPaymentsSync?: (payments: Payment[]) => void;
   onMonthSync?: (month: string, data: MonthData) => void;
   onProgress?: (message: string) => void;
 }
@@ -385,6 +401,45 @@ export async function syncDirtyFiles(
     }
   }
 
+  // Sync expense categories if dirty
+  if (status.expenseCategories.dirty) {
+    callbacks.onProgress?.('Syncing expense categories...');
+    const result = await syncFile('expenseCategories', data.expenseCategories || [], (synced) => {
+      callbacks.onExpenseCategoriesSync?.(synced);
+    });
+    if (result.success) {
+      syncedFiles.push('expenseCategories');
+    } else {
+      failedFiles.push('expenseCategories');
+    }
+  }
+
+  // Sync expenses if dirty
+  if (status.expenses.dirty) {
+    callbacks.onProgress?.('Syncing expenses...');
+    const result = await syncFile('expenses', data.expenses || [], (synced) => {
+      callbacks.onExpensesSync?.(synced);
+    });
+    if (result.success) {
+      syncedFiles.push('expenses');
+    } else {
+      failedFiles.push('expenses');
+    }
+  }
+
+  // Sync payments if dirty
+  if (status.payments.dirty) {
+    callbacks.onProgress?.('Syncing payments...');
+    const result = await syncFile('payments', data.payments || [], (synced) => {
+      callbacks.onPaymentsSync?.(synced);
+    });
+    if (result.success) {
+      syncedFiles.push('payments');
+    } else {
+      failedFiles.push('payments');
+    }
+  }
+
   // Sync dirty months
   for (const [month, monthStatus] of Object.entries(status.months)) {
     if (monthStatus.dirty) {
@@ -439,6 +494,9 @@ export async function pullData(): Promise<SyncResult> {
       status.areas = { lastModified: null, lastSynced: now, dirty: false };
       status.activities = { lastModified: null, lastSynced: now, dirty: false };
       status.groups = { lastModified: null, lastSynced: now, dirty: false };
+      status.expenseCategories = { lastModified: null, lastSynced: now, dirty: false };
+      status.expenses = { lastModified: null, lastSynced: now, dirty: false };
+      status.payments = { lastModified: null, lastSynced: now, dirty: false };
       status.lastFullSync = now;
 
       // Mark all months as synced
@@ -499,6 +557,9 @@ export async function pushData(data: AppData): Promise<SyncResult> {
       status.areas = { lastModified: null, lastSynced: now, dirty: false };
       status.activities = { lastModified: null, lastSynced: now, dirty: false };
       status.groups = { lastModified: null, lastSynced: now, dirty: false };
+      status.expenseCategories = { lastModified: null, lastSynced: now, dirty: false };
+      status.expenses = { lastModified: null, lastSynced: now, dirty: false };
+      status.payments = { lastModified: null, lastSynced: now, dirty: false };
       status.lastFullSync = now;
 
       // Mark all months as synced

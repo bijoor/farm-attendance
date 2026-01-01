@@ -1,6 +1,7 @@
 import React, { createContext, useContext, type ReactNode, useEffect } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import type { AppData, AppSettings, Worker, Area, Activity, Group, MonthData, MonthActivityGroup, GroupDayEntry, AttendanceStatus, Language } from '../types';
+import type { AppData, AppSettings, Worker, Area, Activity, Group, MonthData, MonthActivityGroup, GroupDayEntry, AttendanceStatus, Language, ExpenseCategory, SundryExpense, Payment } from '../types';
+import { sampleExpenseCategories } from '../data/sampleData';
 import { initialAppData, sampleGroups } from '../data/sampleData';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -44,6 +45,25 @@ interface AppContextType {
   updateGroupDayActivity: (month: string, groupId: string, date: string, activityCode?: string, areaCode?: string) => void;
   getWorkerDayTotal: (month: string, date: string, workerId: string) => number; // Returns 0, 0.5, or 1
 
+  // Expense Category operations
+  addExpenseCategory: (category: Omit<ExpenseCategory, 'id'>) => void;
+  updateExpenseCategory: (id: string, category: Partial<ExpenseCategory>) => void;
+  deleteExpenseCategory: (id: string) => void;
+
+  // Expense operations
+  addExpense: (expense: Omit<SundryExpense, 'id' | 'createdAt'>) => void;
+  updateExpense: (id: string, expense: Partial<SundryExpense>) => void;
+  deleteExpense: (id: string) => void;
+  getExpensesByMonth: (month: string) => SundryExpense[];
+  getExpensesByGroup: (groupId: string, month?: string) => SundryExpense[];
+
+  // Payment operations
+  addPayment: (payment: Omit<Payment, 'id' | 'createdAt'>) => void;
+  updatePayment: (id: string, payment: Partial<Payment>) => void;
+  deletePayment: (id: string) => void;
+  getPaymentsByMonth: (month: string) => Payment[];
+  getPaymentsByGroup: (groupId: string, month?: string) => Payment[];
+
   // Settings
   setLanguage: (language: Language) => void;
 
@@ -82,6 +102,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
   }, [data.groups, setData]);
+
+  // Migration: Ensure data has accounting arrays (for existing users upgrading)
+  useEffect(() => {
+    const needsMigration = !data.expenseCategories || !data.expenses || !data.payments;
+    if (needsMigration) {
+      setData(prev => ({
+        ...prev,
+        expenseCategories: prev.expenseCategories || sampleExpenseCategories,
+        expenses: prev.expenses || [],
+        payments: prev.payments || [],
+      }));
+    }
+  }, [data.expenseCategories, data.expenses, data.payments, setData]);
 
   // Worker operations
   const addWorker = (worker: Omit<Worker, 'id'>) => {
@@ -200,6 +233,128 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
 
       return { ...prev, groups: updatedGroups };
+    });
+  };
+
+  // Expense Category operations
+  const addExpenseCategory = (category: Omit<ExpenseCategory, 'id'>) => {
+    const newCategory: ExpenseCategory = { ...category, id: uuidv4() };
+    setData(prev => ({
+      ...prev,
+      expenseCategories: [...(prev.expenseCategories || []), newCategory],
+    }));
+  };
+
+  const updateExpenseCategory = (id: string, categoryUpdate: Partial<ExpenseCategory>) => {
+    setData(prev => ({
+      ...prev,
+      expenseCategories: (prev.expenseCategories || []).map(c =>
+        c.id === id ? { ...c, ...categoryUpdate } : c
+      ),
+    }));
+  };
+
+  const deleteExpenseCategory = (id: string) => {
+    // Soft delete for sync compatibility
+    setData(prev => ({
+      ...prev,
+      expenseCategories: (prev.expenseCategories || []).map(c =>
+        c.id === id ? { ...c, deleted: true, deletedAt: new Date().toISOString() } : c
+      ),
+    }));
+  };
+
+  // Expense operations
+  const addExpense = (expense: Omit<SundryExpense, 'id' | 'createdAt'>) => {
+    const newExpense: SundryExpense = {
+      ...expense,
+      id: uuidv4(),
+      createdAt: new Date().toISOString(),
+    };
+    setData(prev => ({
+      ...prev,
+      expenses: [...(prev.expenses || []), newExpense],
+    }));
+  };
+
+  const updateExpense = (id: string, expenseUpdate: Partial<SundryExpense>) => {
+    setData(prev => ({
+      ...prev,
+      expenses: (prev.expenses || []).map(e =>
+        e.id === id ? { ...e, ...expenseUpdate, modifiedAt: new Date().toISOString() } : e
+      ),
+    }));
+  };
+
+  const deleteExpense = (id: string) => {
+    // Soft delete for sync compatibility
+    setData(prev => ({
+      ...prev,
+      expenses: (prev.expenses || []).map(e =>
+        e.id === id ? { ...e, deleted: true, deletedAt: new Date().toISOString() } : e
+      ),
+    }));
+  };
+
+  const getExpensesByMonth = (month: string): SundryExpense[] => {
+    return (data.expenses || []).filter(e => e.month === month && !e.deleted);
+  };
+
+  const getExpensesByGroup = (groupId: string, month?: string): SundryExpense[] => {
+    return (data.expenses || []).filter(e => {
+      if (e.deleted) return false;
+      if (month && e.month !== month) return false;
+      // Check direct group assignment
+      if (e.groupId === groupId) return true;
+      // Check shared expense allocations
+      if (e.isShared && e.allocations) {
+        return e.allocations.some(a => a.groupId === groupId);
+      }
+      return false;
+    });
+  };
+
+  // Payment operations
+  const addPayment = (payment: Omit<Payment, 'id' | 'createdAt'>) => {
+    const newPayment: Payment = {
+      ...payment,
+      id: uuidv4(),
+      createdAt: new Date().toISOString(),
+    };
+    setData(prev => ({
+      ...prev,
+      payments: [...(prev.payments || []), newPayment],
+    }));
+  };
+
+  const updatePayment = (id: string, paymentUpdate: Partial<Payment>) => {
+    setData(prev => ({
+      ...prev,
+      payments: (prev.payments || []).map(p =>
+        p.id === id ? { ...p, ...paymentUpdate, modifiedAt: new Date().toISOString() } : p
+      ),
+    }));
+  };
+
+  const deletePayment = (id: string) => {
+    // Soft delete for sync compatibility
+    setData(prev => ({
+      ...prev,
+      payments: (prev.payments || []).map(p =>
+        p.id === id ? { ...p, deleted: true, deletedAt: new Date().toISOString() } : p
+      ),
+    }));
+  };
+
+  const getPaymentsByMonth = (month: string): Payment[] => {
+    return (data.payments || []).filter(p => p.month === month && !p.deleted);
+  };
+
+  const getPaymentsByGroup = (groupId: string, month?: string): Payment[] => {
+    return (data.payments || []).filter(p => {
+      if (p.deleted) return false;
+      if (month && p.month !== month) return false;
+      return p.groupId === groupId;
     });
   };
 
@@ -479,6 +634,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateGroupAttendance,
     updateGroupDayActivity,
     getWorkerDayTotal,
+    addExpenseCategory,
+    updateExpenseCategory,
+    deleteExpenseCategory,
+    addExpense,
+    updateExpense,
+    deleteExpense,
+    getExpensesByMonth,
+    getExpensesByGroup,
+    addPayment,
+    updatePayment,
+    deletePayment,
+    getPaymentsByMonth,
+    getPaymentsByGroup,
     setLanguage,
     exportData,
     importData,

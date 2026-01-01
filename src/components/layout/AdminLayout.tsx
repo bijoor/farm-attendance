@@ -19,6 +19,9 @@ import {
   ArrowLeft,
   Cloud,
   Shield,
+  Wallet,
+  CreditCard,
+  Tags,
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
@@ -38,6 +41,9 @@ const AdminLayout: React.FC = () => {
     { path: '/admin/groups', icon: Users2, label: t('groups') },
     { path: '/admin/areas', icon: MapPin, label: t('areas') },
     { path: '/admin/activities', icon: ClipboardList, label: t('activities') },
+    { path: '/admin/expense-categories', icon: Tags, label: isMarathi ? 'खर्च प्रकार' : 'Expense Types' },
+    { path: '/admin/expenses', icon: Wallet, label: isMarathi ? 'खर्च' : 'Expenses' },
+    { path: '/admin/payments', icon: CreditCard, label: isMarathi ? 'पेमेंट' : 'Payments' },
     { path: '/admin/reports', icon: BarChart3, label: t('reports') },
     { path: '/admin/labour-cost', icon: IndianRupee, label: t('labourCost') },
     { path: '/admin/settings', icon: Settings, label: t('settings') },

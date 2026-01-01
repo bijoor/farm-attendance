@@ -20,9 +20,19 @@ import cors from 'cors';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Version tracking for auto-update
+const packageJson = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'));
+const CURRENT_VERSION = packageJson.version;
+const UPDATE_CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/bijoor/farm-attendance/main/package.json';
+
+let lastUpdateCheck = null;
+let updateAvailable = null;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -164,6 +174,88 @@ function mergeDays(localDays = [], remoteDays = []) {
   return Array.from(map.values());
 }
 
+// ============ Auto-Update Functions ============
+
+async function checkForUpdates() {
+  console.log(`[${new Date().toISOString()}] Checking for updates...`);
+  lastUpdateCheck = new Date().toISOString();
+
+  try {
+    const response = await fetch(GITHUB_RAW_URL);
+    if (!response.ok) {
+      console.error('Failed to fetch remote package.json:', response.status);
+      return { hasUpdate: false, error: 'Failed to fetch remote version' };
+    }
+
+    const remotePackage = await response.json();
+    const remoteVersion = remotePackage.version;
+
+    if (remoteVersion !== CURRENT_VERSION) {
+      console.log(`Update available: ${CURRENT_VERSION} → ${remoteVersion}`);
+      updateAvailable = { from: CURRENT_VERSION, to: remoteVersion };
+      return { hasUpdate: true, currentVersion: CURRENT_VERSION, newVersion: remoteVersion };
+    }
+
+    console.log(`No updates available. Current version: ${CURRENT_VERSION}`);
+    updateAvailable = null;
+    return { hasUpdate: false, currentVersion: CURRENT_VERSION };
+  } catch (err) {
+    console.error('Update check failed:', err.message);
+    return { hasUpdate: false, error: err.message };
+  }
+}
+
+async function performUpdate() {
+  console.log(`[${new Date().toISOString()}] Starting update...`);
+
+  try {
+    // Check if we're in a git repository
+    try {
+      execSync('git status', { cwd: __dirname, stdio: 'pipe' });
+    } catch {
+      console.error('Not a git repository. Cannot auto-update.');
+      return { success: false, error: 'Not a git repository' };
+    }
+
+    // Stash any local changes (to preserve data folder modifications)
+    console.log('Stashing local changes...');
+    try {
+      execSync('git stash', { cwd: __dirname, stdio: 'pipe' });
+    } catch {
+      // Ignore if nothing to stash
+    }
+
+    // Pull latest code
+    console.log('Pulling latest code from GitHub...');
+    execSync('git pull origin main', { cwd: __dirname, stdio: 'inherit' });
+
+    // Install dependencies if package.json changed
+    console.log('Installing dependencies...');
+    execSync('npm install --production', { cwd: __dirname, stdio: 'inherit' });
+
+    // Build the frontend
+    console.log('Building frontend...');
+    try {
+      execSync('npm run build', { cwd: __dirname, stdio: 'inherit' });
+    } catch (buildErr) {
+      console.error('Build failed, but continuing...', buildErr.message);
+    }
+
+    console.log('Update complete! Restarting server...');
+
+    // Give a moment for the response to be sent, then exit
+    // PM2 will auto-restart the process
+    setTimeout(() => {
+      process.exit(0);
+    }, 2000);
+
+    return { success: true, message: 'Update applied. Server restarting...' };
+  } catch (err) {
+    console.error('Update failed:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 // ============ API Endpoints ============
 
 // Get manifest (list of all files with timestamps)
@@ -173,6 +265,9 @@ app.get('/api/manifest', (req, res) => {
     areas: getFileTimestamp(join(DATA_DIR, 'areas.json')),
     activities: getFileTimestamp(join(DATA_DIR, 'activities.json')),
     groups: getFileTimestamp(join(DATA_DIR, 'groups.json')),
+    expenseCategories: getFileTimestamp(join(DATA_DIR, 'expenseCategories.json')),
+    expenses: getFileTimestamp(join(DATA_DIR, 'expenses.json')),
+    payments: getFileTimestamp(join(DATA_DIR, 'payments.json')),
     settings: getFileTimestamp(join(DATA_DIR, 'settings.json')),
     months: {},
   };
@@ -192,7 +287,7 @@ app.get('/api/manifest', (req, res) => {
 // Get specific master file
 app.get('/api/data/:type', (req, res) => {
   const { type } = req.params;
-  const validTypes = ['workers', 'areas', 'activities', 'groups', 'settings'];
+  const validTypes = ['workers', 'areas', 'activities', 'groups', 'expenseCategories', 'expenses', 'payments', 'settings'];
 
   if (!validTypes.includes(type)) {
     return res.status(400).json({ success: false, error: 'Invalid data type' });
@@ -207,7 +302,7 @@ app.get('/api/data/:type', (req, res) => {
 // Update specific master file
 app.post('/api/data/:type', (req, res) => {
   const { type } = req.params;
-  const validTypes = ['workers', 'areas', 'activities', 'groups', 'settings'];
+  const validTypes = ['workers', 'areas', 'activities', 'groups', 'expenseCategories', 'expenses', 'payments', 'settings'];
 
   if (!validTypes.includes(type)) {
     return res.status(400).json({ success: false, error: 'Invalid data type' });
@@ -261,6 +356,9 @@ app.get('/api/data', (req, res) => {
   const areas = loadFile(join(DATA_DIR, 'areas.json'));
   const activities = loadFile(join(DATA_DIR, 'activities.json'));
   const groups = loadFile(join(DATA_DIR, 'groups.json'));
+  const expenseCategories = loadFile(join(DATA_DIR, 'expenseCategories.json'));
+  const expenses = loadFile(join(DATA_DIR, 'expenses.json'));
+  const payments = loadFile(join(DATA_DIR, 'payments.json'));
   const settings = loadFile(join(DATA_DIR, 'settings.json'));
 
   // Load all months
@@ -280,6 +378,9 @@ app.get('/api/data', (req, res) => {
     areas: areas?.items || [],
     activities: activities?.items || [],
     groups: groups?.items || [],
+    expenseCategories: expenseCategories?.items || [],
+    expenses: expenses?.items || [],
+    payments: payments?.items || [],
     months,
     version: settings?.version || '1.0.0',
     lastSyncedAt: new Date().toISOString(),
@@ -315,6 +416,21 @@ app.post('/api/data', (req, res) => {
   const localGroups = loadFile(join(DATA_DIR, 'groups.json'));
   const mergedGroups = mergeArray(localGroups?.items || [], remoteData.groups || [], 'id');
   saveFile(join(DATA_DIR, 'groups.json'), { items: mergedGroups, lastModified: new Date().toISOString() });
+
+  // Merge expense categories
+  const localExpenseCategories = loadFile(join(DATA_DIR, 'expenseCategories.json'));
+  const mergedExpenseCategories = mergeArray(localExpenseCategories?.items || [], remoteData.expenseCategories || [], 'id');
+  saveFile(join(DATA_DIR, 'expenseCategories.json'), { items: mergedExpenseCategories, lastModified: new Date().toISOString() });
+
+  // Merge expenses
+  const localExpenses = loadFile(join(DATA_DIR, 'expenses.json'));
+  const mergedExpenses = mergeArray(localExpenses?.items || [], remoteData.expenses || [], 'id');
+  saveFile(join(DATA_DIR, 'expenses.json'), { items: mergedExpenses, lastModified: new Date().toISOString() });
+
+  // Merge payments
+  const localPayments = loadFile(join(DATA_DIR, 'payments.json'));
+  const mergedPayments = mergeArray(localPayments?.items || [], remoteData.payments || [], 'id');
+  saveFile(join(DATA_DIR, 'payments.json'), { items: mergedPayments, lastModified: new Date().toISOString() });
 
   // Merge months
   const mergedMonths = [];
@@ -356,6 +472,9 @@ app.post('/api/data', (req, res) => {
     areas: mergedAreas,
     activities: mergedActivities,
     groups: mergedGroups,
+    expenseCategories: mergedExpenseCategories,
+    expenses: mergedExpenses,
+    payments: mergedPayments,
     months: mergedMonths,
     version: remoteData.version || '1.0.0',
     lastSyncedAt: new Date().toISOString(),
@@ -373,10 +492,50 @@ app.post('/api/data', (req, res) => {
 app.get('/api/status', (req, res) => {
   res.json({
     status: 'online',
+    version: CURRENT_VERSION,
     timestamp: new Date().toISOString(),
     dataExists: existsSync(DATA_DIR) && readdirSync(DATA_DIR).length > 0,
     multiFile: true,
+    lastUpdateCheck,
+    updateAvailable,
   });
+});
+
+// ============ Version & Update Endpoints ============
+
+// Get current version
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: CURRENT_VERSION,
+    lastUpdateCheck,
+    updateAvailable,
+  });
+});
+
+// Check for updates (manual trigger)
+app.get('/api/check-update', async (req, res) => {
+  const result = await checkForUpdates();
+  res.json(result);
+});
+
+// Trigger update (manual)
+app.post('/api/update', async (req, res) => {
+  console.log('Manual update triggered via API');
+  const checkResult = await checkForUpdates();
+
+  if (!checkResult.hasUpdate) {
+    return res.json({ success: false, message: 'No updates available', ...checkResult });
+  }
+
+  const updateResult = await performUpdate();
+  res.json(updateResult);
+});
+
+// Force update (skip version check)
+app.post('/api/force-update', async (req, res) => {
+  console.log('Force update triggered via API');
+  const updateResult = await performUpdate();
+  res.json(updateResult);
 });
 
 // Fallback to index.html for SPA routing
@@ -387,7 +546,7 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║        Farm Attendance Sync Server (Multi-File)           ║
+║     Farm Attendance Sync Server v${CURRENT_VERSION.padEnd(24)}║
 ╠═══════════════════════════════════════════════════════════╣
 ║                                                           ║
 ║  Server running at: http://localhost:${PORT}                 ║
@@ -397,11 +556,44 @@ app.listen(PORT, () => {
 ║    - areas.json                                           ║
 ║    - activities.json                                      ║
 ║    - groups.json                                          ║
+║    - expenseCategories.json                               ║
+║    - expenses.json                                        ║
+║    - payments.json                                        ║
 ║    - months/*.json                                        ║
+║                                                           ║
+║  Auto-update: Enabled (every 6 hours)                     ║
+║  API endpoints:                                           ║
+║    GET  /api/version      - Current version               ║
+║    GET  /api/check-update - Check for updates             ║
+║    POST /api/update       - Apply available update        ║
 ║                                                           ║
 ║  To expose via Tailscale Funnel:                          ║
 ║  tailscale funnel ${PORT}                                    ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
+
+  // Schedule auto-update checks
+  console.log('Auto-update scheduler started. Checking every 6 hours.');
+
+  // Check for updates 30 seconds after startup
+  setTimeout(async () => {
+    console.log('Running initial update check...');
+    const result = await checkForUpdates();
+    if (result.hasUpdate) {
+      console.log(`\n*** UPDATE AVAILABLE: ${result.currentVersion} → ${result.newVersion} ***`);
+      console.log('To update, run: curl -X POST http://localhost:' + PORT + '/api/update\n');
+    }
+  }, 30000);
+
+  // Then check every 6 hours
+  setInterval(async () => {
+    const result = await checkForUpdates();
+    if (result.hasUpdate) {
+      console.log(`\n*** UPDATE AVAILABLE: ${result.currentVersion} → ${result.newVersion} ***`);
+      // Auto-apply update
+      console.log('Auto-applying update...');
+      await performUpdate();
+    }
+  }, UPDATE_CHECK_INTERVAL);
 });

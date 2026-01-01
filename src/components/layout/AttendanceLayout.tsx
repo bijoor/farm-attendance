@@ -13,6 +13,7 @@ import {
   Printer,
   Calendar,
   IndianRupee,
+  Wallet,
 } from 'lucide-react';
 
 const AttendanceLayout: React.FC = () => {
@@ -49,6 +50,12 @@ const AttendanceLayout: React.FC = () => {
     path: '/labour-cost',
     label: t('labourCost'),
     icon: IndianRupee,
+  });
+
+  navItems.push({
+    path: '/expenses',
+    label: isMarathi ? 'खर्च' : 'Expenses',
+    icon: Wallet,
   });
 
   const handleGoHome = () => {
