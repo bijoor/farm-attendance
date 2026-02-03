@@ -396,14 +396,11 @@ export interface GroupPaymentSummary {
   groupId: string;
   groupName: string;
   marathiName?: string;
-  labourPayments: number;
-  expensePayments: number;
   totalPayments: number;
   payments: {
     id: string;
     date: string;
     amount: number;
-    paymentFor: 'labour' | 'expense';
     description?: string;
   }[];
 }
@@ -415,11 +412,7 @@ export interface GroupCostSummary {
   labourCost: number;
   expenseCost: number;
   totalCost: number;
-  labourPayments: number;
-  expensePayments: number;
   totalPayments: number;
-  labourBalance: number;       // labourCost - labourPayments
-  expenseBalance: number;      // expenseCost - expensePayments
   totalBalance: number;        // totalCost - totalPayments
 }
 
@@ -505,25 +498,17 @@ export const calculatePaymentsByGroup = (
 
   for (const group of groups) {
     const groupPayments = payments.filter(p => p.groupId === group.id);
-    const labourPayments = groupPayments
-      .filter(p => p.paymentFor === 'labour')
-      .reduce((sum, p) => sum + p.amount, 0);
-    const expensePayments = groupPayments
-      .filter(p => p.paymentFor === 'expense')
-      .reduce((sum, p) => sum + p.amount, 0);
+    const totalPayments = groupPayments.reduce((sum, p) => sum + p.amount, 0);
 
     result.push({
       groupId: group.id,
       groupName: group.name,
       marathiName: group.marathiName,
-      labourPayments,
-      expensePayments,
-      totalPayments: labourPayments + expensePayments,
+      totalPayments,
       payments: groupPayments.map(p => ({
         id: p.id,
         date: p.date,
         amount: p.amount,
-        paymentFor: p.paymentFor,
         description: p.description,
       })).sort((a, b) => a.date.localeCompare(b.date)),
     });
@@ -562,8 +547,7 @@ export const calculateMonthlyCostSummary = (
 
     const labourCost = labour?.totalCost || 0;
     const expenseCost = expense?.totalExpenses || 0;
-    const labourPayments = payment?.labourPayments || 0;
-    const expensePayments = payment?.expensePayments || 0;
+    const totalPayments = payment?.totalPayments || 0;
 
     // Get group info from any available source
     const groupInfo = labour || expense || payment;
@@ -575,12 +559,8 @@ export const calculateMonthlyCostSummary = (
       labourCost,
       expenseCost,
       totalCost: labourCost + expenseCost,
-      labourPayments,
-      expensePayments,
-      totalPayments: labourPayments + expensePayments,
-      labourBalance: labourCost - labourPayments,
-      expenseBalance: expenseCost - expensePayments,
-      totalBalance: (labourCost + expenseCost) - (labourPayments + expensePayments),
+      totalPayments,
+      totalBalance: (labourCost + expenseCost) - totalPayments,
     });
   }
 
@@ -602,7 +582,7 @@ export const calculateGroupOpeningBalance = (
   data: AppData,
   groupId: string,
   upToMonth: string
-): { labourBalance: number; expenseBalance: number; totalBalance: number } => {
+): number => {
   // Get all months that have data, sorted chronologically
   const allMonths = new Set<string>();
 
@@ -627,24 +607,18 @@ export const calculateGroupOpeningBalance = (
     }
   });
 
-  let labourBalance = 0;
-  let expenseBalance = 0;
+  let totalBalance = 0;
 
   // Calculate balance for each previous month
   for (const month of allMonths) {
     const summary = calculateMonthlyCostSummary(data, month);
     const groupSummary = summary.find(s => s.groupId === groupId);
     if (groupSummary) {
-      labourBalance += groupSummary.labourBalance;
-      expenseBalance += groupSummary.expenseBalance;
+      totalBalance += groupSummary.totalBalance;
     }
   }
 
-  return {
-    labourBalance,
-    expenseBalance,
-    totalBalance: labourBalance + expenseBalance,
-  };
+  return totalBalance;
 };
 
 /**
@@ -659,8 +633,6 @@ export interface GroupMonthBalanceReport {
   labourCost: number;
   expenseCost: number;
   totalCost: number;
-  labourPayments: number;
-  expensePayments: number;
   totalPayments: number;
   currentMonthBalance: number;
   closingBalance: number;
@@ -676,28 +648,25 @@ export const calculateGroupMonthBalance = (
   const result: GroupMonthBalanceReport[] = [];
 
   for (const group of groups) {
-    const opening = calculateGroupOpeningBalance(data, group.id, month);
+    const openingBalance = calculateGroupOpeningBalance(data, group.id, month);
     const current = currentMonthSummary.find(s => s.groupId === group.id);
 
     const labourCost = current?.labourCost || 0;
     const expenseCost = current?.expenseCost || 0;
-    const labourPayments = current?.labourPayments || 0;
-    const expensePayments = current?.expensePayments || 0;
-    const currentMonthBalance = (labourCost + expenseCost) - (labourPayments + expensePayments);
+    const totalPayments = current?.totalPayments || 0;
+    const currentMonthBalance = (labourCost + expenseCost) - totalPayments;
 
     result.push({
       groupId: group.id,
       groupName: group.name,
       marathiName: group.marathiName,
-      openingBalance: opening.totalBalance,
+      openingBalance,
       labourCost,
       expenseCost,
       totalCost: labourCost + expenseCost,
-      labourPayments,
-      expensePayments,
-      totalPayments: labourPayments + expensePayments,
+      totalPayments,
       currentMonthBalance,
-      closingBalance: opening.totalBalance + currentMonthBalance,
+      closingBalance: openingBalance + currentMonthBalance,
     });
   }
 
@@ -706,6 +675,291 @@ export const calculateGroupMonthBalance = (
     const groupA = groups.find(g => g.id === a.groupId);
     const groupB = groups.find(g => g.id === b.groupId);
     return (groupA?.order ?? 0) - (groupB?.order ?? 0);
+  });
+
+  return result;
+};
+
+// ============ Date-Range (Settlement Period) Calculations ============
+
+/**
+ * Get months that overlap with a date range.
+ * E.g. startDate="2025-11-20", endDate="2025-12-21" → ["2025-11", "2025-12"]
+ */
+const getMonthsInDateRange = (startDate: string, endDate: string): string[] => {
+  const startMonth = startDate.substring(0, 7);
+  const endMonth = endDate.substring(0, 7);
+  const months: string[] = [];
+  let current = parseISO(`${startMonth}-01`);
+  const end = parseISO(`${endMonth}-01`);
+  while (current <= end) {
+    months.push(format(current, 'yyyy-MM'));
+    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+  }
+  return months;
+};
+
+/**
+ * Calculate labour costs per group for an arbitrary date range.
+ */
+export const calculateLabourCostByGroupForPeriod = (
+  data: AppData,
+  startDate: string,
+  endDate: string
+): GroupLabourCost[] => {
+  const months = getMonthsInDateRange(startDate, endDate);
+  const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
+
+  // Accumulate per master-group
+  const groupWorkerMap = new Map<string, Map<string, { daysWorked: number; halfDays: number }>>();
+
+  for (const month of months) {
+    const monthData = data.months.find(m => m.month === month);
+    if (!monthData?.groups) continue;
+
+    for (const monthGroup of monthData.groups) {
+      if (!monthGroup.groupId) continue;
+      const masterGroup = groups.find(g => g.id === monthGroup.groupId);
+      if (!masterGroup) continue;
+
+      if (!groupWorkerMap.has(masterGroup.id)) {
+        groupWorkerMap.set(masterGroup.id, new Map());
+      }
+      const workerMap = groupWorkerMap.get(masterGroup.id)!;
+
+      for (const day of monthGroup.days || []) {
+        if (day.date < startDate || day.date > endDate) continue;
+        for (const [workerId, status] of Object.entries(day.attendance || {})) {
+          if (status !== 'P' && status !== 'H') continue;
+          if (!workerMap.has(workerId)) {
+            workerMap.set(workerId, { daysWorked: 0, halfDays: 0 });
+          }
+          const counts = workerMap.get(workerId)!;
+          if (status === 'P') counts.daysWorked++;
+          else if (status === 'H') counts.halfDays++;
+        }
+      }
+    }
+  }
+
+  const result: GroupLabourCost[] = [];
+
+  for (const group of groups) {
+    const workerMap = groupWorkerMap.get(group.id);
+    if (!workerMap || workerMap.size === 0) continue;
+
+    const workers: GroupWorkerCost[] = [];
+    for (const [workerId, counts] of workerMap) {
+      const worker = data.workers.find(w => w.id === workerId);
+      if (!worker) continue;
+      const totalDays = counts.daysWorked + counts.halfDays * 0.5;
+      const totalCost = counts.daysWorked * worker.dailyRate + counts.halfDays * worker.dailyRate * 0.5;
+      workers.push({
+        workerId,
+        workerName: worker.name,
+        marathiName: worker.marathiName,
+        dailyRate: worker.dailyRate,
+        daysWorked: counts.daysWorked,
+        halfDays: counts.halfDays,
+        totalDays,
+        totalCost,
+      });
+    }
+
+    workers.sort((a, b) => a.workerName.localeCompare(b.workerName));
+
+    result.push({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      workers,
+      totalDays: workers.reduce((s, w) => s + w.totalDays, 0),
+      totalCost: workers.reduce((s, w) => s + w.totalCost, 0),
+    });
+  }
+
+  result.sort((a, b) => {
+    const gA = groups.find(g => g.id === a.groupId);
+    const gB = groups.find(g => g.id === b.groupId);
+    return (gA?.order ?? 0) - (gB?.order ?? 0);
+  });
+
+  return result;
+};
+
+/**
+ * Calculate expenses per group for an arbitrary date range.
+ */
+export const calculateExpensesByGroupForPeriod = (
+  data: AppData,
+  startDate: string,
+  endDate: string
+): GroupExpenseSummary[] => {
+  const expenses = (data.expenses || []).filter(e =>
+    !e.deleted && e.date >= startDate && e.date <= endDate
+  );
+  const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
+
+  const result: GroupExpenseSummary[] = [];
+
+  for (const group of groups) {
+    let directExpenses = 0;
+    let sharedExpenses = 0;
+    const expenseList: GroupExpenseSummary['expenses'] = [];
+
+    for (const expense of expenses) {
+      if (expense.groupId === group.id && !expense.isShared) {
+        directExpenses += expense.amount;
+        expenseList.push({
+          id: expense.id,
+          date: expense.date,
+          description: expense.description,
+          amount: expense.amount,
+          isShared: false,
+        });
+      }
+
+      if (expense.isShared && expense.allocations) {
+        const allocation = expense.allocations.find(a => a.groupId === group.id);
+        if (allocation) {
+          let allocatedAmount = 0;
+          if (allocation.percentage !== undefined) {
+            allocatedAmount = (expense.amount * allocation.percentage) / 100;
+          } else if (allocation.amount !== undefined) {
+            allocatedAmount = allocation.amount;
+          }
+          sharedExpenses += allocatedAmount;
+          expenseList.push({
+            id: expense.id,
+            date: expense.date,
+            description: expense.description,
+            amount: expense.amount,
+            isShared: true,
+            allocatedAmount,
+          });
+        }
+      }
+    }
+
+    result.push({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      directExpenses,
+      sharedExpenses,
+      totalExpenses: directExpenses + sharedExpenses,
+      expenses: expenseList.sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
+  result.sort((a, b) => {
+    const gA = groups.find(g => g.id === a.groupId);
+    const gB = groups.find(g => g.id === b.groupId);
+    return (gA?.order ?? 0) - (gB?.order ?? 0);
+  });
+
+  return result;
+};
+
+/**
+ * Calculate payments per group for an arbitrary date range.
+ */
+export const calculatePaymentsByGroupForPeriod = (
+  data: AppData,
+  startDate: string,
+  endDate: string
+): GroupPaymentSummary[] => {
+  const payments = (data.payments || []).filter(p =>
+    !p.deleted && p.date >= startDate && p.date <= endDate
+  );
+  const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
+
+  const result: GroupPaymentSummary[] = [];
+
+  for (const group of groups) {
+    const groupPayments = payments.filter(p => p.groupId === group.id);
+    const totalPayments = groupPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    result.push({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      totalPayments,
+      payments: groupPayments.map(p => ({
+        id: p.id,
+        date: p.date,
+        amount: p.amount,
+        description: p.description,
+      })).sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
+  result.sort((a, b) => {
+    const gA = groups.find(g => g.id === a.groupId);
+    const gB = groups.find(g => g.id === b.groupId);
+    return (gA?.order ?? 0) - (gB?.order ?? 0);
+  });
+
+  return result;
+};
+
+/**
+ * Calculate full balance report per group for an arbitrary date range.
+ * Opening balance = cumulative balance for all dates before startDate.
+ */
+export const calculateGroupBalanceForPeriod = (
+  data: AppData,
+  startDate: string,
+  endDate: string
+): GroupMonthBalanceReport[] => {
+  const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
+
+  // Calculate opening balances (all activity before startDate)
+  const earliestDate = '2000-01-01';
+  const dayBeforeStart = format(
+    new Date(parseISO(startDate).getTime() - 86400000),
+    'yyyy-MM-dd'
+  );
+  const priorLabour = calculateLabourCostByGroupForPeriod(data, earliestDate, dayBeforeStart);
+  const priorExpenses = calculateExpensesByGroupForPeriod(data, earliestDate, dayBeforeStart);
+  const priorPayments = calculatePaymentsByGroupForPeriod(data, earliestDate, dayBeforeStart);
+
+  // Current period
+  const currentLabour = calculateLabourCostByGroupForPeriod(data, startDate, endDate);
+  const currentExpenses = calculateExpensesByGroupForPeriod(data, startDate, endDate);
+  const currentPayments = calculatePaymentsByGroupForPeriod(data, startDate, endDate);
+
+  const result: GroupMonthBalanceReport[] = [];
+
+  for (const group of groups) {
+    const pLabour = priorLabour.find(l => l.groupId === group.id)?.totalCost || 0;
+    const pExpense = priorExpenses.find(e => e.groupId === group.id)?.totalExpenses || 0;
+    const pPayment = priorPayments.find(p => p.groupId === group.id)?.totalPayments || 0;
+    const openingBalance = (pLabour + pExpense) - pPayment;
+
+    const labourCost = currentLabour.find(l => l.groupId === group.id)?.totalCost || 0;
+    const expenseCost = currentExpenses.find(e => e.groupId === group.id)?.totalExpenses || 0;
+    const totalPayments = currentPayments.find(p => p.groupId === group.id)?.totalPayments || 0;
+    const currentMonthBalance = (labourCost + expenseCost) - totalPayments;
+
+    result.push({
+      groupId: group.id,
+      groupName: group.name,
+      marathiName: group.marathiName,
+      openingBalance,
+      labourCost,
+      expenseCost,
+      totalCost: labourCost + expenseCost,
+      totalPayments,
+      currentMonthBalance,
+      closingBalance: openingBalance + currentMonthBalance,
+    });
+  }
+
+  result.sort((a, b) => {
+    const gA = groups.find(g => g.id === a.groupId);
+    const gB = groups.find(g => g.id === b.groupId);
+    return (gA?.order ?? 0) - (gB?.order ?? 0);
   });
 
   return result;

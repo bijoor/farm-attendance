@@ -63,7 +63,7 @@ const Attendance: React.FC = () => {
 
   // Get active master groups sorted by order
   const activeGroups = (data.groups || [])
-    .filter(g => g.status === 'active')
+    .filter(g => g.status === 'active' && !g.deleted)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   // Auto-initialize: ensure all active master groups exist in the current month
@@ -82,7 +82,7 @@ const Attendance: React.FC = () => {
   const groups = monthGroups
     .filter(mg => {
       const masterGroup = getGroupById(mg.groupId);
-      return masterGroup && masterGroup.status === 'active';
+      return masterGroup && masterGroup.status === 'active' && !masterGroup.deleted;
     })
     .sort((a, b) => {
       const masterA = getGroupById(a.groupId);

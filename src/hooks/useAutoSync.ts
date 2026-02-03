@@ -26,6 +26,7 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
   const prevExpenseCategoriesRef = useRef<string>('');
   const prevExpensesRef = useRef<string>('');
   const prevPaymentsRef = useRef<string>('');
+  const prevSettlementPeriodsRef = useRef<string>('');
   const prevMonthsRef = useRef<{ [key: string]: string }>({});
 
   const saveToServer = useCallback(async (dataToSave: AppData) => {
@@ -70,6 +71,7 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
     const expenseCategoriesStr = JSON.stringify(data.expenseCategories || []);
     const expensesStr = JSON.stringify(data.expenses || []);
     const paymentsStr = JSON.stringify(data.payments || []);
+    const settlementPeriodsStr = JSON.stringify(data.settlementPeriods || []);
 
     let hasChanges = false;
 
@@ -121,6 +123,13 @@ export function useAutoSync(data: AppData, enabled: boolean = true) {
       hasChanges = true;
     }
     prevPaymentsRef.current = paymentsStr;
+
+    // Check settlement periods
+    if (settlementPeriodsStr !== prevSettlementPeriodsRef.current && prevSettlementPeriodsRef.current !== '') {
+      markFileDirty('settlementPeriods');
+      hasChanges = true;
+    }
+    prevSettlementPeriodsRef.current = settlementPeriodsStr;
 
     // Check each month
     for (const month of data.months) {

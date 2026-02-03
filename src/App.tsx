@@ -11,12 +11,13 @@ import Activities from './pages/Activities';
 import GroupAttendance from './pages/GroupAttendance';
 import Print from './pages/Print';
 import Reports from './pages/Reports';
-import LabourCost from './pages/LabourCost';
+import Accounts from './pages/Accounts';
 import Settings from './pages/Settings';
 import ExpenseCategories from './pages/ExpenseCategories';
 import Expenses from './pages/Expenses';
 import Payments from './pages/Payments';
 import FarmExpenses from './pages/FarmExpenses';
+import Settlements from './pages/Settlements';
 
 function App() {
   return (
@@ -31,8 +32,9 @@ function App() {
             <Route path="attendance" element={<Navigate to="/" replace />} />
             <Route path="attendance/:groupId" element={<GroupAttendance />} />
             <Route path="print" element={<Print />} />
-            <Route path="labour-cost" element={<LabourCost />} />
+            <Route path="accounts" element={<Accounts />} />
             <Route path="expenses" element={<FarmExpenses />} />
+            <Route path="settlements" element={<Settlements />} />
           </Route>
 
           {/* Admin interface (hidden URL) */}
@@ -46,7 +48,7 @@ function App() {
             <Route path="expenses" element={<Expenses />} />
             <Route path="payments" element={<Payments />} />
             <Route path="reports" element={<Reports />} />
-            <Route path="labour-cost" element={<LabourCost />} />
+            <Route path="accounts" element={<Accounts />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

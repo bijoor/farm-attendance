@@ -92,12 +92,23 @@ export interface Payment {
   date: string;           // "YYYY-MM-DD"
   month: string;          // "YYYY-MM" for grouping
   amount: number;
-  // What is this payment for?
-  paymentFor: 'labour' | 'expense';
   groupId: string;        // Which group this payment is for
-  expenseId?: string;     // If paymentFor='expense', link to specific expense
   // Metadata
   description?: string;
+  notes?: string;
+  createdAt: string;
+  modifiedAt?: string;
+  deleted?: boolean;
+  deletedAt?: string;
+}
+
+// Settlement Period (named date ranges for reconciliation)
+export interface SettlementPeriod {
+  id: string;
+  name: string;           // e.g. "Nov 20 – Dec 21"
+  marathiName?: string;
+  startDate: string;       // "YYYY-MM-DD"
+  endDate: string;         // "YYYY-MM-DD"
   notes?: string;
   createdAt: string;
   modifiedAt?: string;
@@ -158,6 +169,7 @@ export interface AppData {
   expenseCategories: ExpenseCategory[];
   expenses: SundryExpense[];
   payments: Payment[];
+  settlementPeriods: SettlementPeriod[];
   exportedAt?: string;
   version?: string;
 }

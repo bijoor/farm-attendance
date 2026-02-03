@@ -14,6 +14,7 @@ import {
   Calendar,
   IndianRupee,
   Wallet,
+  CalendarRange,
 } from 'lucide-react';
 
 const AttendanceLayout: React.FC = () => {
@@ -72,8 +73,8 @@ const AttendanceLayout: React.FC = () => {
   });
 
   navItems.push({
-    path: '/labour-cost',
-    label: t('labourCost'),
+    path: '/accounts',
+    label: isMarathi ? 'खाते' : 'Accounts',
     icon: IndianRupee,
   });
 
@@ -81,6 +82,12 @@ const AttendanceLayout: React.FC = () => {
     path: '/expenses',
     label: isMarathi ? 'खर्च' : 'Expenses',
     icon: Wallet,
+  });
+
+  navItems.push({
+    path: '/settlements',
+    label: isMarathi ? 'तहकूब' : 'Settlements',
+    icon: CalendarRange,
   });
 
   const handleGoHome = () => {

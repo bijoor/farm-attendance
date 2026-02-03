@@ -271,6 +271,7 @@ app.get('/api/manifest', (req, res) => {
     expenseCategories: getFileTimestamp(join(DATA_DIR, 'expenseCategories.json')),
     expenses: getFileTimestamp(join(DATA_DIR, 'expenses.json')),
     payments: getFileTimestamp(join(DATA_DIR, 'payments.json')),
+    settlementPeriods: getFileTimestamp(join(DATA_DIR, 'settlementPeriods.json')),
     settings: getFileTimestamp(join(DATA_DIR, 'settings.json')),
     months: {},
   };
@@ -290,7 +291,7 @@ app.get('/api/manifest', (req, res) => {
 // Get specific master file
 app.get('/api/data/:type', (req, res) => {
   const { type } = req.params;
-  const validTypes = ['workers', 'areas', 'activities', 'groups', 'expenseCategories', 'expenses', 'payments', 'settings'];
+  const validTypes = ['workers', 'areas', 'activities', 'groups', 'expenseCategories', 'expenses', 'payments', 'settlementPeriods', 'settings'];
 
   if (!validTypes.includes(type)) {
     return res.status(400).json({ success: false, error: 'Invalid data type' });
@@ -305,7 +306,7 @@ app.get('/api/data/:type', (req, res) => {
 // Update specific master file
 app.post('/api/data/:type', (req, res) => {
   const { type } = req.params;
-  const validTypes = ['workers', 'areas', 'activities', 'groups', 'expenseCategories', 'expenses', 'payments', 'settings'];
+  const validTypes = ['workers', 'areas', 'activities', 'groups', 'expenseCategories', 'expenses', 'payments', 'settlementPeriods', 'settings'];
 
   if (!validTypes.includes(type)) {
     return res.status(400).json({ success: false, error: 'Invalid data type' });
@@ -362,6 +363,7 @@ app.get('/api/data', (req, res) => {
   const expenseCategories = loadFile(join(DATA_DIR, 'expenseCategories.json'));
   const expenses = loadFile(join(DATA_DIR, 'expenses.json'));
   const payments = loadFile(join(DATA_DIR, 'payments.json'));
+  const settlementPeriods = loadFile(join(DATA_DIR, 'settlementPeriods.json'));
   const settings = loadFile(join(DATA_DIR, 'settings.json'));
 
   // Load all months
@@ -384,6 +386,7 @@ app.get('/api/data', (req, res) => {
     expenseCategories: expenseCategories?.items || [],
     expenses: expenses?.items || [],
     payments: payments?.items || [],
+    settlementPeriods: settlementPeriods?.items || [],
     months,
     version: settings?.version || '1.0.0',
     lastSyncedAt: new Date().toISOString(),
@@ -435,6 +438,11 @@ app.post('/api/data', (req, res) => {
   const mergedPayments = mergeArray(localPayments?.items || [], remoteData.payments || [], 'id');
   saveFile(join(DATA_DIR, 'payments.json'), { items: mergedPayments, lastModified: new Date().toISOString() });
 
+  // Merge settlement periods
+  const localSettlementPeriods = loadFile(join(DATA_DIR, 'settlementPeriods.json'));
+  const mergedSettlementPeriods = mergeArray(localSettlementPeriods?.items || [], remoteData.settlementPeriods || [], 'id');
+  saveFile(join(DATA_DIR, 'settlementPeriods.json'), { items: mergedSettlementPeriods, lastModified: new Date().toISOString() });
+
   // Merge months
   const mergedMonths = [];
   const remoteMonths = remoteData.months || [];
@@ -478,6 +486,7 @@ app.post('/api/data', (req, res) => {
     expenseCategories: mergedExpenseCategories,
     expenses: mergedExpenses,
     payments: mergedPayments,
+    settlementPeriods: mergedSettlementPeriods,
     months: mergedMonths,
     version: remoteData.version || '1.0.0',
     lastSyncedAt: new Date().toISOString(),

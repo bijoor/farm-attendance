@@ -1,6 +1,6 @@
 import React, { createContext, useContext, type ReactNode, useEffect } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import type { AppData, AppSettings, Worker, Area, Activity, Group, MonthData, MonthActivityGroup, GroupDayEntry, AttendanceStatus, Language, ExpenseCategory, SundryExpense, Payment } from '../types';
+import type { AppData, AppSettings, Worker, Area, Activity, Group, MonthData, MonthActivityGroup, GroupDayEntry, AttendanceStatus, Language, ExpenseCategory, SundryExpense, Payment, SettlementPeriod } from '../types';
 import { sampleExpenseCategories } from '../data/sampleData';
 import { initialAppData, sampleGroups } from '../data/sampleData';
 import { v4 as uuidv4 } from 'uuid';
@@ -64,6 +64,11 @@ interface AppContextType {
   getPaymentsByMonth: (month: string) => Payment[];
   getPaymentsByGroup: (groupId: string, month?: string) => Payment[];
 
+  // Settlement Period operations
+  addSettlementPeriod: (period: Omit<SettlementPeriod, 'id' | 'createdAt'>) => void;
+  updateSettlementPeriod: (id: string, period: Partial<SettlementPeriod>) => void;
+  deleteSettlementPeriod: (id: string) => void;
+
   // Settings
   setLanguage: (language: Language) => void;
 
@@ -115,6 +120,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }));
     }
   }, [data.expenseCategories, data.expenses, data.payments, setData]);
+
+  // Migration: Ensure data has settlementPeriods array
+  useEffect(() => {
+    if (!data.settlementPeriods) {
+      setData(prev => ({
+        ...prev,
+        settlementPeriods: prev.settlementPeriods || [],
+      }));
+    }
+  }, [data.settlementPeriods, setData]);
 
   // Worker operations
   const addWorker = (worker: Omit<Worker, 'id'>) => {
@@ -364,6 +379,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
+  // Settlement Period operations
+  const addSettlementPeriod = (period: Omit<SettlementPeriod, 'id' | 'createdAt'>) => {
+    const newPeriod: SettlementPeriod = {
+      ...period,
+      id: uuidv4(),
+      createdAt: new Date().toISOString(),
+    };
+    setData(prev => ({
+      ...prev,
+      settlementPeriods: [...(prev.settlementPeriods || []), newPeriod],
+    }));
+  };
+
+  const updateSettlementPeriod = (id: string, periodUpdate: Partial<SettlementPeriod>) => {
+    setData(prev => ({
+      ...prev,
+      settlementPeriods: (prev.settlementPeriods || []).map(p =>
+        p.id === id ? { ...p, ...periodUpdate, modifiedAt: new Date().toISOString() } : p
+      ),
+    }));
+  };
+
+  const deleteSettlementPeriod = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      settlementPeriods: (prev.settlementPeriods || []).map(p =>
+        p.id === id ? { ...p, deleted: true, deletedAt: new Date().toISOString() } : p
+      ),
+    }));
+  };
+
   // Helper to get groups for a month (handles legacy data)
   const migrateMonthToGroups = (monthData: MonthData): MonthActivityGroup[] => {
     if (monthData.groups && monthData.groups.length > 0) {
@@ -568,6 +614,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     let total = 0;
 
     for (const group of groups) {
+      // Skip groups without a groupId (orphaned legacy groups) or whose
+      // master group has been deleted / deactivated
+      if (!group.groupId) continue;
+      const master = getGroupById(group.groupId);
+      if (!master || master.deleted || master.status !== 'active') continue;
+
       const dayEntry = group.days.find(d => d.date === date);
       if (dayEntry?.attendance[workerId]) {
         const status = dayEntry.attendance[workerId];
@@ -653,6 +705,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     deletePayment,
     getPaymentsByMonth,
     getPaymentsByGroup,
+    addSettlementPeriod,
+    updateSettlementPeriod,
+    deleteSettlementPeriod,
     setLanguage,
     exportData,
     importData,

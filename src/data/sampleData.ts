@@ -73,5 +73,6 @@ export const initialAppData: AppData = {
   expenseCategories: sampleExpenseCategories,
   expenses: [],
   payments: [],
+  settlementPeriods: [],
   version: '1.2.0',
 };
