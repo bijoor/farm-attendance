@@ -22,6 +22,7 @@ import {
   Wallet,
   CreditCard,
   Tags,
+  CalendarRange,
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
@@ -46,6 +47,7 @@ const AdminLayout: React.FC = () => {
     { path: '/admin/payments', icon: CreditCard, label: isMarathi ? 'पेमेंट' : 'Payments' },
     { path: '/admin/reports', icon: BarChart3, label: t('reports') },
     { path: '/admin/accounts', icon: IndianRupee, label: isMarathi ? 'खाते' : 'Accounts' },
+    { path: '/admin/settlements', icon: CalendarRange, label: isMarathi ? 'तहकूब' : 'Settlements' },
     { path: '/admin/settings', icon: Settings, label: t('settings') },
   ];
 

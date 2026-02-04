@@ -74,16 +74,24 @@ const Settlements: React.FC = () => {
       expenseCost: acc.expenseCost + g.expenseCost,
       totalCost: acc.totalCost + g.totalCost,
       totalPayments: acc.totalPayments + g.totalPayments,
+      labourPayments: acc.labourPayments + g.labourPayments,
+      expensePayments: acc.expensePayments + g.expensePayments,
       currentMonthBalance: acc.currentMonthBalance + g.currentMonthBalance,
       closingBalance: acc.closingBalance + g.closingBalance,
+      labourBalance: acc.labourBalance + g.labourBalance,
+      expenseBalance: acc.expenseBalance + g.expenseBalance,
     }), {
       openingBalance: 0,
       labourCost: 0,
       expenseCost: 0,
       totalCost: 0,
       totalPayments: 0,
+      labourPayments: 0,
+      expensePayments: 0,
       currentMonthBalance: 0,
       closingBalance: 0,
+      labourBalance: 0,
+      expenseBalance: 0,
     });
   }, [balanceReport]);
 
@@ -373,14 +381,38 @@ const Settlements: React.FC = () => {
                           <span className="text-green-700">{formatCurrency(group.totalPayments)}</span>
                         </div>
                       )}
-                      <div className="border-t border-slate-200 pt-1 mt-1 flex justify-between font-semibold">
-                        <span className="text-slate-700">
-                          {group.closingBalance < 0
-                            ? (isMarathi ? 'जमा शिल्लक' : 'Credit Balance')
-                            : (isMarathi ? 'बाकी रक्कम' : 'Balance Due')
-                          }
-                        </span>
-                        <span className={closing.color}>{closing.text}{closing.suffix}</span>
+                      <div className="border-t border-slate-200 pt-1 mt-1 space-y-1">
+                        {group.labourBalance !== 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">{isMarathi ? 'मजूर बाकी' : 'Labour Balance'}</span>
+                            <span className={group.labourBalance > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                              {group.labourBalance < 0
+                                ? `${formatCurrency(Math.abs(group.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                                : formatCurrency(group.labourBalance)
+                              }
+                            </span>
+                          </div>
+                        )}
+                        {group.expenseBalance !== 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">{isMarathi ? 'खर्च बाकी' : 'Expense Balance'}</span>
+                            <span className={group.expenseBalance > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                              {group.expenseBalance < 0
+                                ? `${formatCurrency(Math.abs(group.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                                : formatCurrency(group.expenseBalance)
+                              }
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-semibold border-t border-slate-100 pt-1">
+                          <span className="text-slate-700">
+                            {group.closingBalance < 0
+                              ? (isMarathi ? 'जमा शिल्लक' : 'Credit Balance')
+                              : (isMarathi ? 'बाकी रक्कम' : 'Balance Due')
+                            }
+                          </span>
+                          <span className={closing.color}>{closing.text}{closing.suffix}</span>
+                        </div>
                       </div>
                     </div>
                   </button>
@@ -464,6 +496,11 @@ const Settlements: React.FC = () => {
                                     {format(parseISO(payment.date), 'dd MMM')}
                                   </span>
                                   <span className="text-slate-700">{payment.description || (isMarathi ? 'पेमेंट' : 'Payment')}</span>
+                                  <span className={`ml-1 text-xs px-1.5 py-0.5 rounded ${
+                                    payment.paymentFor === 'expense' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {payment.paymentFor === 'expense' ? (isMarathi ? 'खर्च' : 'Exp') : (isMarathi ? 'मजूर' : 'Lab')}
+                                  </span>
                                 </div>
                                 <span className="text-green-700 font-medium ml-2 tabular-nums">
                                   {formatCurrency(payment.amount)}
@@ -509,12 +546,12 @@ const Settlements: React.FC = () => {
                       <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'मजूर' : 'Labour'}</th>
                       <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'खर्च' : 'Expense'}</th>
                       <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'भरले' : 'Paid'}</th>
-                      <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'बाकी' : 'Due'}</th>
+                      <th className="text-right py-2 px-3 font-medium text-blue-600">{isMarathi ? 'मजूर बाकी' : 'Lab Due'}</th>
+                      <th className="text-right py-2 px-3 font-medium text-amber-600">{isMarathi ? 'खर्च बाकी' : 'Exp Due'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {balanceReport.map(group => {
-                      const cb = formatBalance(group.closingBalance);
                       return (
                         <tr key={group.groupId} className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-700 font-medium">{getGroupName(group)}</td>
@@ -537,8 +574,17 @@ const Settlements: React.FC = () => {
                           <td className="py-2 px-3 text-right tabular-nums text-green-700">
                             {group.totalPayments > 0 ? formatCurrency(group.totalPayments) : '–'}
                           </td>
-                          <td className={`py-2 px-3 text-right tabular-nums font-semibold ${cb.color}`}>
-                            {cb.text}{cb.suffix}
+                          <td className={`py-2 px-3 text-right tabular-nums font-semibold ${group.labourBalance > 0 ? 'text-red-600' : group.labourBalance < 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                            {group.labourBalance === 0 ? '–' : group.labourBalance < 0
+                              ? `${formatCurrency(Math.abs(group.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                              : formatCurrency(group.labourBalance)
+                            }
+                          </td>
+                          <td className={`py-2 px-3 text-right tabular-nums font-semibold ${group.expenseBalance > 0 ? 'text-red-600' : group.expenseBalance < 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                            {group.expenseBalance === 0 ? '–' : group.expenseBalance < 0
+                              ? `${formatCurrency(Math.abs(group.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                              : formatCurrency(group.expenseBalance)
+                            }
                           </td>
                         </tr>
                       );
@@ -567,37 +613,61 @@ const Settlements: React.FC = () => {
                         {grandTotals.totalPayments > 0 ? formatCurrency(grandTotals.totalPayments) : '–'}
                       </td>
                       <td className={`py-2 px-3 text-right tabular-nums font-bold ${
-                        grandTotals.closingBalance < 0 ? 'text-green-700' : grandTotals.closingBalance > 0 ? 'text-red-700' : 'text-slate-800'
+                        grandTotals.labourBalance > 0 ? 'text-red-700' : grandTotals.labourBalance < 0 ? 'text-green-700' : 'text-slate-400'
                       }`}>
-                        {formatBalance(grandTotals.closingBalance).text}
-                        {formatBalance(grandTotals.closingBalance).suffix}
+                        {grandTotals.labourBalance === 0 ? '–' : grandTotals.labourBalance < 0
+                          ? `${formatCurrency(Math.abs(grandTotals.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                          : formatCurrency(grandTotals.labourBalance)
+                        }
+                      </td>
+                      <td className={`py-2 px-3 text-right tabular-nums font-bold ${
+                        grandTotals.expenseBalance > 0 ? 'text-red-700' : grandTotals.expenseBalance < 0 ? 'text-green-700' : 'text-slate-400'
+                      }`}>
+                        {grandTotals.expenseBalance === 0 ? '–' : grandTotals.expenseBalance < 0
+                          ? `${formatCurrency(Math.abs(grandTotals.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                          : formatCurrency(grandTotals.expenseBalance)
+                        }
                       </td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
 
-              <div className={`px-4 py-3 border-t border-slate-200 flex items-center justify-between ${
-                grandTotals.closingBalance <= 0 ? 'bg-green-50' : 'bg-red-50'
-              }`}>
-                <span className={`font-semibold text-sm ${
-                  grandTotals.closingBalance <= 0 ? 'text-green-800' : 'text-red-800'
-                }`}>
-                  {grandTotals.closingBalance < 0
-                    ? (isMarathi ? 'एकूण जमा शिल्लक' : 'Total Credit Balance')
-                    : grandTotals.closingBalance === 0
-                      ? (isMarathi ? 'सर्व पेमेंट पूर्ण' : 'All Payments Clear')
-                      : (isMarathi ? 'एकूण बाकी रक्कम' : 'Total Amount Due')
-                  }
-                </span>
-                <span className={`text-lg font-bold ${
-                  grandTotals.closingBalance <= 0 ? 'text-green-700' : 'text-red-700'
-                }`}>
-                  {grandTotals.closingBalance === 0
-                    ? '\u2713'
-                    : `${formatCurrency(Math.abs(grandTotals.closingBalance))}${grandTotals.closingBalance < 0 ? (isMarathi ? ' जमा' : ' Cr') : ''}`
-                  }
-                </span>
+              <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 space-y-2">
+                {grandTotals.labourBalance !== 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-blue-800">
+                      {isMarathi ? 'मजूरांना देणे' : 'Pay to Workers'}
+                    </span>
+                    <span className={`text-base font-bold ${grandTotals.labourBalance > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      {grandTotals.labourBalance < 0
+                        ? `${formatCurrency(Math.abs(grandTotals.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                        : formatCurrency(grandTotals.labourBalance)
+                      }
+                    </span>
+                  </div>
+                )}
+                {grandTotals.expenseBalance !== 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-amber-800">
+                      {isMarathi ? 'मालकाकडून वसूल' : 'Settle with Owner'}
+                    </span>
+                    <span className={`text-base font-bold ${grandTotals.expenseBalance > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      {grandTotals.expenseBalance < 0
+                        ? `${formatCurrency(Math.abs(grandTotals.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
+                        : formatCurrency(grandTotals.expenseBalance)
+                      }
+                    </span>
+                  </div>
+                )}
+                {grandTotals.labourBalance === 0 && grandTotals.expenseBalance === 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-green-800">
+                      {isMarathi ? 'सर्व पेमेंट पूर्ण' : 'All Payments Clear'}
+                    </span>
+                    <span className="text-lg font-bold text-green-700">{'\u2713'}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

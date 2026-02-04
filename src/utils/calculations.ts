@@ -397,11 +397,14 @@ export interface GroupPaymentSummary {
   groupName: string;
   marathiName?: string;
   totalPayments: number;
+  labourPayments: number;
+  expensePayments: number;
   payments: {
     id: string;
     date: string;
     amount: number;
     description?: string;
+    paymentFor?: 'labour' | 'expense';
   }[];
 }
 
@@ -499,17 +502,22 @@ export const calculatePaymentsByGroup = (
   for (const group of groups) {
     const groupPayments = payments.filter(p => p.groupId === group.id);
     const totalPayments = groupPayments.reduce((sum, p) => sum + p.amount, 0);
+    const labourPayments = groupPayments.filter(p => p.paymentFor !== 'expense').reduce((sum, p) => sum + p.amount, 0);
+    const expensePayments = groupPayments.filter(p => p.paymentFor === 'expense').reduce((sum, p) => sum + p.amount, 0);
 
     result.push({
       groupId: group.id,
       groupName: group.name,
       marathiName: group.marathiName,
       totalPayments,
+      labourPayments,
+      expensePayments,
       payments: groupPayments.map(p => ({
         id: p.id,
         date: p.date,
         amount: p.amount,
         description: p.description,
+        paymentFor: p.paymentFor,
       })).sort((a, b) => a.date.localeCompare(b.date)),
     });
   }
@@ -634,8 +642,12 @@ export interface GroupMonthBalanceReport {
   expenseCost: number;
   totalCost: number;
   totalPayments: number;
+  labourPayments: number;
+  expensePayments: number;
   currentMonthBalance: number;
   closingBalance: number;
+  labourBalance: number;    // labourCost - labourPayments
+  expenseBalance: number;   // expenseCost - expensePayments
 }
 
 export const calculateGroupMonthBalance = (
@@ -644,16 +656,20 @@ export const calculateGroupMonthBalance = (
 ): GroupMonthBalanceReport[] => {
   const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
   const currentMonthSummary = calculateMonthlyCostSummary(data, month);
+  const paymentSummary = calculatePaymentsByGroup(data, month);
 
   const result: GroupMonthBalanceReport[] = [];
 
   for (const group of groups) {
     const openingBalance = calculateGroupOpeningBalance(data, group.id, month);
     const current = currentMonthSummary.find(s => s.groupId === group.id);
+    const payments = paymentSummary.find(p => p.groupId === group.id);
 
     const labourCost = current?.labourCost || 0;
     const expenseCost = current?.expenseCost || 0;
     const totalPayments = current?.totalPayments || 0;
+    const labourPayments = payments?.labourPayments || 0;
+    const expensePayments = payments?.expensePayments || 0;
     const currentMonthBalance = (labourCost + expenseCost) - totalPayments;
 
     result.push({
@@ -665,8 +681,12 @@ export const calculateGroupMonthBalance = (
       expenseCost,
       totalCost: labourCost + expenseCost,
       totalPayments,
+      labourPayments,
+      expensePayments,
       currentMonthBalance,
       closingBalance: openingBalance + currentMonthBalance,
+      labourBalance: labourCost - labourPayments,
+      expenseBalance: expenseCost - expensePayments,
     });
   }
 
@@ -883,17 +903,22 @@ export const calculatePaymentsByGroupForPeriod = (
   for (const group of groups) {
     const groupPayments = payments.filter(p => p.groupId === group.id);
     const totalPayments = groupPayments.reduce((sum, p) => sum + p.amount, 0);
+    const labourPayments = groupPayments.filter(p => p.paymentFor !== 'expense').reduce((sum, p) => sum + p.amount, 0);
+    const expensePayments = groupPayments.filter(p => p.paymentFor === 'expense').reduce((sum, p) => sum + p.amount, 0);
 
     result.push({
       groupId: group.id,
       groupName: group.name,
       marathiName: group.marathiName,
       totalPayments,
+      labourPayments,
+      expensePayments,
       payments: groupPayments.map(p => ({
         id: p.id,
         date: p.date,
         amount: p.amount,
         description: p.description,
+        paymentFor: p.paymentFor,
       })).sort((a, b) => a.date.localeCompare(b.date)),
     });
   }
@@ -943,7 +968,10 @@ export const calculateGroupBalanceForPeriod = (
 
     const labourCost = currentLabour.find(l => l.groupId === group.id)?.totalCost || 0;
     const expenseCost = currentExpenses.find(e => e.groupId === group.id)?.totalExpenses || 0;
-    const totalPayments = currentPayments.find(p => p.groupId === group.id)?.totalPayments || 0;
+    const curPayments = currentPayments.find(p => p.groupId === group.id);
+    const totalPayments = curPayments?.totalPayments || 0;
+    const labourPayments = curPayments?.labourPayments || 0;
+    const expensePayments = curPayments?.expensePayments || 0;
     const currentMonthBalance = (labourCost + expenseCost) - totalPayments;
 
     result.push({
@@ -955,8 +983,12 @@ export const calculateGroupBalanceForPeriod = (
       expenseCost,
       totalCost: labourCost + expenseCost,
       totalPayments,
+      labourPayments,
+      expensePayments,
       currentMonthBalance,
       closingBalance: openingBalance + currentMonthBalance,
+      labourBalance: labourCost - labourPayments,
+      expenseBalance: expenseCost - expensePayments,
     });
   }
 

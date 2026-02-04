@@ -94,6 +94,7 @@ export interface Payment {
   month: string;          // "YYYY-MM" for grouping
   amount: number;
   groupId: string;        // Which group this payment is for
+  paymentFor?: 'labour' | 'expense';  // What the payment covers (default: labour)
   // Metadata
   description?: string;
   notes?: string;

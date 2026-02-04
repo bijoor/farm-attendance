@@ -49,6 +49,7 @@ function App() {
             <Route path="payments" element={<Payments />} />
             <Route path="reports" element={<Reports />} />
             <Route path="accounts" element={<Accounts />} />
+            <Route path="settlements" element={<Settlements />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

@@ -24,6 +24,7 @@ const Payments: React.FC = () => {
     date: format(new Date(), 'yyyy-MM-dd'),
     dueDate: '',
     amount: '',
+    paymentFor: 'labour' as 'labour' | 'expense',
     groupId: '',
     description: '',
     notes: '',
@@ -61,6 +62,7 @@ const Payments: React.FC = () => {
       date: format(new Date(), 'yyyy-MM-dd'),
       dueDate: '',
       amount: '',
+      paymentFor: 'labour',
       groupId: '',
       description: '',
       notes: '',
@@ -85,6 +87,7 @@ const Payments: React.FC = () => {
       date: payment.date,
       dueDate: payment.dueDate || '',
       amount: payment.amount.toString(),
+      paymentFor: payment.paymentFor || 'labour',
       groupId: payment.groupId,
       description: payment.description || '',
       notes: payment.notes || '',
@@ -106,6 +109,7 @@ const Payments: React.FC = () => {
       dueDate: formData.dueDate || undefined,
       month: formData.date.substring(0, 7), // Extract YYYY-MM
       amount: parseFloat(formData.amount),
+      paymentFor: formData.paymentFor,
       groupId: formData.groupId,
       description: formData.description.trim() || undefined,
       notes: formData.notes.trim() || undefined,
@@ -158,7 +162,7 @@ const Payments: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-3 gap-3 mb-3">
         <Select
           label={isMarathi ? 'गट' : 'Group'}
           value={formData.groupId}
@@ -171,6 +175,15 @@ const Payments: React.FC = () => {
             })),
           ]}
           required
+        />
+        <Select
+          label={isMarathi ? 'प्रकार' : 'Type'}
+          value={formData.paymentFor}
+          onChange={e => setFormData({ ...formData, paymentFor: e.target.value as 'labour' | 'expense' })}
+          options={[
+            { value: 'labour', label: isMarathi ? 'मजूर' : 'Labour' },
+            { value: 'expense', label: isMarathi ? 'खर्च' : 'Expense' },
+          ]}
         />
         <Input
           label={isMarathi ? 'देय तारीख' : 'Due Date'}
@@ -263,7 +276,7 @@ const Payments: React.FC = () => {
                   {isMarathi ? 'गट' : 'Group'}
                 </th>
                 <th className="text-left py-3 px-4 font-medium text-slate-600">
-                  {isMarathi ? 'वर्णन' : 'Description'}
+                  {isMarathi ? 'प्रकार' : 'Type'}
                 </th>
                 <th className="text-right py-3 px-4 font-medium text-slate-600">
                   {isMarathi ? 'रक्कम' : 'Amount'}
@@ -296,7 +309,16 @@ const Payments: React.FC = () => {
                         {getGroupName(payment.groupId)}
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-600">
-                        {payment.description || '-'}
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          payment.paymentFor === 'expense'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {payment.paymentFor === 'expense'
+                            ? (isMarathi ? 'खर्च' : 'Expense')
+                            : (isMarathi ? 'मजूर' : 'Labour')
+                          }
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-right font-medium text-green-700">
                         {formatCurrency(payment.amount)}

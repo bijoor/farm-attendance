@@ -233,10 +233,13 @@ const AttendanceLayout: React.FC = () => {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation - Show first few groups */}
+      {/* Mobile Bottom Navigation - Groups + accounting pages */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40">
         <div className="flex justify-around items-center h-16">
-          {navItems.slice(0, 5).map(item => (
+          {[
+            ...navItems.slice(0, Math.min(activeGroups.length, 2)),
+            ...navItems.slice(activeGroups.length).filter(item => item.path !== '/print'),
+          ].map(item => (
             <NavLink
               key={item.path}
               to={item.path}
