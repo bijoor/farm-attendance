@@ -96,35 +96,28 @@ const Reports: React.FC = () => {
       return p.month >= startMonth && p.month <= endMonth;
     });
 
-    const groupMap = new Map<string, { labour: number; expense: number; total: number }>();
+    const groupMap = new Map<string, number>();
     const groups = (data.groups || []).filter(g => !g.deleted);
 
-    groups.forEach(g => groupMap.set(g.id, { labour: 0, expense: 0, total: 0 }));
+    groups.forEach(g => groupMap.set(g.id, 0));
 
     payments.forEach(payment => {
-      const existing = groupMap.get(payment.groupId) || { labour: 0, expense: 0, total: 0 };
-      if (payment.paymentFor === 'labour') {
-        existing.labour += payment.amount;
-      } else {
-        existing.expense += payment.amount;
-      }
-      existing.total += payment.amount;
-      groupMap.set(payment.groupId, existing);
+      const existing = groupMap.get(payment.groupId) || 0;
+      groupMap.set(payment.groupId, existing + payment.amount);
     });
 
     return groupMap;
   }, [data.payments, data.groups, startMonth, endMonth]);
 
   const totalPayments = useMemo(() => {
-    let labour = 0, expense = 0;
+    let total = 0;
     paymentsByGroup.forEach(p => {
-      labour += p.labour;
-      expense += p.expense;
+      total += p;
     });
-    return { labour, expense, total: labour + expense };
+    return total;
   }, [paymentsByGroup]);
 
-  const balanceDue = grandTotal - totalPayments.total;
+  const balanceDue = grandTotal - totalPayments;
 
   // Chart data
   const workerChartData = monthlyReport.workers
@@ -236,10 +229,7 @@ const Reports: React.FC = () => {
                 <CreditCard size={16} />
                 {isMarathi ? 'एकूण पेमेंट' : 'Total Payments'}
               </div>
-              <div className="text-2xl font-bold mt-1">{formatCurrency(totalPayments.total)}</div>
-              <div className="text-xs opacity-80 mt-1">
-                {isMarathi ? 'मजूर' : 'Labour'}: {formatCurrency(totalPayments.labour)} | {isMarathi ? 'खर्च' : 'Exp'}: {formatCurrency(totalPayments.expense)}
-              </div>
+              <div className="text-2xl font-bold mt-1">{formatCurrency(totalPayments)}</div>
             </div>
             <div className={`${balanceDue > 0 ? 'bg-red-600' : 'bg-slate-600'} text-white rounded-xl p-5 shadow-sm`}>
               <div className="flex items-center gap-2 text-sm opacity-80">
@@ -250,7 +240,7 @@ const Reports: React.FC = () => {
               <div className="text-xs opacity-80 mt-1">
                 {balanceDue <= 0
                   ? (isMarathi ? 'पूर्ण भरणा झाला' : 'Fully paid')
-                  : `${((totalPayments.total / grandTotal) * 100 || 0).toFixed(0)}% ${isMarathi ? 'भरणा' : 'paid'}`
+                  : `${((totalPayments / grandTotal) * 100 || 0).toFixed(0)}% ${isMarathi ? 'भरणा' : 'paid'}`
                 }
               </div>
             </div>
@@ -263,7 +253,7 @@ const Reports: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-green-600">
                   <span>{isMarathi ? 'पेमेंट' : 'Paid'}:</span>
-                  <span className="font-medium">- {formatCurrency(totalPayments.total)}</span>
+                  <span className="font-medium">- {formatCurrency(totalPayments)}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-300 pt-1 font-bold">
                   <span>{isMarathi ? 'बाकी' : 'Due'}:</span>
@@ -322,10 +312,10 @@ const Reports: React.FC = () => {
                 </thead>
                 <tbody>
                   {groupReport
-                    .filter(g => g.totalCost > 0 || (expensesByGroup.get(g.groupId) || 0) > 0 || (paymentsByGroup.get(g.groupId)?.total || 0) > 0)
+                    .filter(g => g.totalCost > 0 || (expensesByGroup.get(g.groupId) || 0) > 0 || (paymentsByGroup.get(g.groupId) || 0) > 0)
                     .map(group => {
                       const groupExpense = expensesByGroup.get(group.groupId) || 0;
-                      const groupPayment = paymentsByGroup.get(group.groupId)?.total || 0;
+                      const groupPayment = paymentsByGroup.get(group.groupId) || 0;
                       const groupTotal = group.totalCost + groupExpense;
                       const groupBalance = groupTotal - groupPayment;
                       return (
@@ -362,7 +352,7 @@ const Reports: React.FC = () => {
                       {formatCurrency(grandTotal)}
                     </td>
                     <td className="py-3 px-3 text-right font-bold text-green-700">
-                      {formatCurrency(totalPayments.total)}
+                      {formatCurrency(totalPayments)}
                     </td>
                     <td className={`py-3 px-3 text-right font-bold ${balanceDue > 0 ? 'text-red-700' : 'text-green-700'}`}>
                       {formatCurrency(balanceDue)}

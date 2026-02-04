@@ -314,7 +314,7 @@ export const calculateLabourCostByGroup = (
 
     workerIdsWithAttendance.forEach(workerId => {
       const worker = data.workers.find(w => w.id === workerId);
-      if (!worker) return;
+      if (!worker || worker.deleted) return;
 
       let daysWorked = 0;
       let halfDays = 0;
@@ -751,7 +751,7 @@ export const calculateLabourCostByGroupForPeriod = (
     const workers: GroupWorkerCost[] = [];
     for (const [workerId, counts] of workerMap) {
       const worker = data.workers.find(w => w.id === workerId);
-      if (!worker) continue;
+      if (!worker || worker.deleted) continue;
       const totalDays = counts.daysWorked + counts.halfDays * 0.5;
       const totalCost = counts.daysWorked * worker.dailyRate + counts.halfDays * worker.dailyRate * 0.5;
       workers.push({
@@ -869,9 +869,13 @@ export const calculatePaymentsByGroupForPeriod = (
   startDate: string,
   endDate: string
 ): GroupPaymentSummary[] => {
-  const payments = (data.payments || []).filter(p =>
-    !p.deleted && p.date >= startDate && p.date <= endDate
-  );
+  // Use dueDate (if set) to determine which period a payment belongs to;
+  // fall back to the actual payment date.
+  const payments = (data.payments || []).filter(p => {
+    if (p.deleted) return false;
+    const effectiveDate = p.dueDate || p.date;
+    return effectiveDate >= startDate && effectiveDate <= endDate;
+  });
   const groups = (data.groups || []).filter(g => !g.deleted && g.status === 'active');
 
   const result: GroupPaymentSummary[] = [];

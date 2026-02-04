@@ -6,12 +6,12 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import type { Payment } from '../types';
-import { Plus, Pencil, Trash2, X, Check, ChevronLeft, ChevronRight, Wallet, Briefcase } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { formatCurrency } from '../utils/calculations';
 
 const Payments: React.FC = () => {
-  const { data, settings, addPayment, updatePayment, deletePayment, getPaymentsByMonth, getExpensesByMonth } = useApp();
+  const { data, settings, addPayment, updatePayment, deletePayment, getPaymentsByMonth } = useApp();
   const t = useTranslation(settings.language);
   const isMarathi = settings.language === 'mr';
 
@@ -22,10 +22,9 @@ const Payments: React.FC = () => {
 
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
+    dueDate: '',
     amount: '',
-    paymentFor: 'labour' as 'labour' | 'expense',
     groupId: '',
-    expenseId: '',
     description: '',
     notes: '',
   });
@@ -36,31 +35,17 @@ const Payments: React.FC = () => {
     [data.groups]
   );
 
-  // Get expenses for selected month (for linking payments)
-  const monthExpenses = getExpensesByMonth(selectedMonth);
-
   const payments = getPaymentsByMonth(selectedMonth);
   const sortedPayments = [...payments].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
   const monthTotal = payments.reduce((sum, p) => sum + p.amount, 0);
-  const labourPayments = payments.filter(p => p.paymentFor === 'labour').reduce((sum, p) => sum + p.amount, 0);
-  const expensePayments = payments.filter(p => p.paymentFor === 'expense').reduce((sum, p) => sum + p.amount, 0);
-
-  // Calculate total sundry expenses for the month
-  const totalExpenses = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   const getGroupName = (groupId: string): string => {
     const group = groups.find(g => g.id === groupId);
     if (!group) return '-';
     return isMarathi && group.marathiName ? group.marathiName : group.name;
-  };
-
-  const getExpenseDescription = (expenseId?: string): string => {
-    if (!expenseId) return '';
-    const expense = (data.expenses || []).find(e => e.id === expenseId);
-    return expense ? expense.description : '';
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -74,10 +59,9 @@ const Payments: React.FC = () => {
   const resetForm = () => {
     setFormData({
       date: format(new Date(), 'yyyy-MM-dd'),
+      dueDate: '',
       amount: '',
-      paymentFor: 'labour',
       groupId: '',
-      expenseId: '',
       description: '',
       notes: '',
     });
@@ -99,10 +83,9 @@ const Payments: React.FC = () => {
     setEditingId(payment.id);
     setFormData({
       date: payment.date,
+      dueDate: payment.dueDate || '',
       amount: payment.amount.toString(),
-      paymentFor: payment.paymentFor,
       groupId: payment.groupId,
-      expenseId: payment.expenseId || '',
       description: payment.description || '',
       notes: payment.notes || '',
     });
@@ -120,11 +103,10 @@ const Payments: React.FC = () => {
 
     const paymentData = {
       date: formData.date,
+      dueDate: formData.dueDate || undefined,
       month: formData.date.substring(0, 7), // Extract YYYY-MM
       amount: parseFloat(formData.amount),
-      paymentFor: formData.paymentFor,
       groupId: formData.groupId,
-      expenseId: formData.paymentFor === 'expense' && formData.expenseId ? formData.expenseId : undefined,
       description: formData.description.trim() || undefined,
       notes: formData.notes.trim() || undefined,
     };
@@ -140,23 +122,11 @@ const Payments: React.FC = () => {
   };
 
   const handleDelete = (payment: Payment) => {
-    const desc = payment.description || (payment.paymentFor === 'labour' ? 'Labour payment' : 'Expense payment');
+    const desc = payment.description || formatCurrency(payment.amount);
     if (confirm(`${t('confirmDelete')} "${desc}"?`)) {
       deletePayment(payment.id);
     }
   };
-
-  // Get group-specific expenses for expense linking (all expenses, not just current month)
-  const allExpenses = useMemo(() =>
-    (data.expenses || []).filter(e => !e.deleted).sort((a, b) =>
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    ),
-    [data.expenses]
-  );
-
-  const groupExpenses = formData.groupId
-    ? allExpenses.filter(e => e.groupId === formData.groupId || e.isShared)
-    : [];
 
   const renderForm = (isEditing: boolean = false) => (
     <form onSubmit={handleSubmit} className="bg-graminno-50 border border-graminno-200 rounded-lg p-4 mb-4">
@@ -190,18 +160,9 @@ const Payments: React.FC = () => {
 
       <div className="grid grid-cols-2 gap-3 mb-3">
         <Select
-          label={isMarathi ? 'पेमेंट प्रकार' : 'Payment Type'}
-          value={formData.paymentFor}
-          onChange={e => setFormData({ ...formData, paymentFor: e.target.value as 'labour' | 'expense', expenseId: '' })}
-          options={[
-            { value: 'labour', label: isMarathi ? 'मजूर खर्च' : 'Labour Cost' },
-            { value: 'expense', label: isMarathi ? 'इतर खर्च' : 'Sundry Expense' },
-          ]}
-        />
-        <Select
           label={isMarathi ? 'गट' : 'Group'}
           value={formData.groupId}
-          onChange={e => setFormData({ ...formData, groupId: e.target.value, expenseId: '' })}
+          onChange={e => setFormData({ ...formData, groupId: e.target.value })}
           options={[
             { value: '', label: isMarathi ? '-- निवडा --' : '-- Select --' },
             ...groups.map(g => ({
@@ -211,25 +172,13 @@ const Payments: React.FC = () => {
           ]}
           required
         />
+        <Input
+          label={isMarathi ? 'देय तारीख' : 'Due Date'}
+          type="date"
+          value={formData.dueDate}
+          onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
+        />
       </div>
-
-      {/* Link to specific expense (optional) */}
-      {formData.paymentFor === 'expense' && groupExpenses.length > 0 && (
-        <div className="mb-3">
-          <Select
-            label={isMarathi ? 'खर्च (पर्यायी)' : 'Expense (Optional)'}
-            value={formData.expenseId}
-            onChange={e => setFormData({ ...formData, expenseId: e.target.value })}
-            options={[
-              { value: '', label: isMarathi ? '-- निवडा (पर्यायी) --' : '-- Select (Optional) --' },
-              ...groupExpenses.map(e => ({
-                value: e.id,
-                label: `${format(parseISO(e.date), 'dd MMM yyyy')} - ${e.description} (${formatCurrency(e.amount)})`,
-              })),
-            ]}
-          />
-        </div>
-      )}
 
       <div className="mb-3">
         <Input
@@ -298,48 +247,6 @@ const Payments: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-          <div className="flex items-center gap-2 text-slate-500 mb-1">
-            <Briefcase size={16} />
-            <span className="text-sm">{isMarathi ? 'मजूर पेमेंट' : 'Labour Payments'}</span>
-          </div>
-          <div className="text-xl font-bold text-slate-800">{formatCurrency(labourPayments)}</div>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-          <div className="flex items-center gap-2 text-slate-500 mb-1">
-            <Wallet size={16} />
-            <span className="text-sm">{isMarathi ? 'खर्च पेमेंट' : 'Expense Payments'}</span>
-          </div>
-          <div className="text-xl font-bold text-slate-800">{formatCurrency(expensePayments)}</div>
-        </div>
-      </div>
-
-      {/* Expenses Summary */}
-      {totalExpenses > 0 && (
-        <div className="bg-amber-50 rounded-xl p-4 shadow-sm border border-amber-200 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-amber-700 mb-1">
-                <Wallet size={16} />
-                <span className="text-sm font-medium">{isMarathi ? 'एकूण खर्च (या महिन्यात)' : 'Total Expenses (This Month)'}</span>
-              </div>
-              <div className="text-2xl font-bold text-amber-800">{formatCurrency(totalExpenses)}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-amber-600">{isMarathi ? 'पेमेंट केले' : 'Paid'}</div>
-              <div className="text-lg font-bold text-amber-700">{formatCurrency(expensePayments)}</div>
-              {totalExpenses - expensePayments > 0 && (
-                <div className="text-sm text-red-600 font-medium">
-                  {isMarathi ? 'बाकी' : 'Due'}: {formatCurrency(totalExpenses - expensePayments)}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Add Form (inline at top) */}
       {showAddForm && renderForm(false)}
 
@@ -353,10 +260,10 @@ const Payments: React.FC = () => {
                   {isMarathi ? 'तारीख' : 'Date'}
                 </th>
                 <th className="text-left py-3 px-4 font-medium text-slate-600">
-                  {isMarathi ? 'प्रकार' : 'Type'}
+                  {isMarathi ? 'गट' : 'Group'}
                 </th>
                 <th className="text-left py-3 px-4 font-medium text-slate-600">
-                  {isMarathi ? 'गट' : 'Group'}
+                  {isMarathi ? 'वर्णन' : 'Description'}
                 </th>
                 <th className="text-right py-3 px-4 font-medium text-slate-600">
                   {isMarathi ? 'रक्कम' : 'Amount'}
@@ -378,34 +285,20 @@ const Payments: React.FC = () => {
                   ) : (
                     <tr className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-3 px-4 text-sm text-slate-600">
-                        {format(parseISO(payment.date), 'dd MMM')}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          {payment.paymentFor === 'labour' ? (
-                            <Briefcase size={14} className="text-blue-500" />
-                          ) : (
-                            <Wallet size={14} className="text-amber-500" />
-                          )}
-                          <span className="text-sm font-medium text-slate-700">
-                            {payment.paymentFor === 'labour'
-                              ? (isMarathi ? 'मजूर' : 'Labour')
-                              : (isMarathi ? 'खर्च' : 'Expense')}
-                          </span>
-                        </div>
-                        {payment.description && (
-                          <div className="text-xs text-slate-400">{payment.description}</div>
-                        )}
-                        {payment.expenseId && (
+                        <div>{format(parseISO(payment.date), 'dd MMM')}</div>
+                        {payment.dueDate && payment.dueDate !== payment.date && (
                           <div className="text-xs text-slate-400">
-                            → {getExpenseDescription(payment.expenseId)}
+                            {isMarathi ? 'देय' : 'Due'}: {format(parseISO(payment.dueDate), 'dd MMM')}
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-sm text-slate-600">
+                      <td className="py-3 px-4 text-sm font-medium text-slate-700">
                         {getGroupName(payment.groupId)}
                       </td>
-                      <td className="py-3 px-4 text-right font-medium text-slate-800">
+                      <td className="py-3 px-4 text-sm text-slate-600">
+                        {payment.description || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-medium text-green-700">
                         {formatCurrency(payment.amount)}
                       </td>
                       <td className="py-3 px-4">
@@ -445,7 +338,7 @@ const Payments: React.FC = () => {
               <span className="font-medium text-slate-600">
                 {isMarathi ? 'एकूण' : 'Total'}
               </span>
-              <span className="font-bold text-lg text-slate-800">
+              <span className="font-bold text-lg text-green-700">
                 {formatCurrency(monthTotal)}
               </span>
             </div>

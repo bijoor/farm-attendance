@@ -89,7 +89,8 @@ export interface SundryExpense {
 // Payment Entry
 export interface Payment {
   id: string;
-  date: string;           // "YYYY-MM-DD"
+  date: string;           // "YYYY-MM-DD" — actual payment date
+  dueDate?: string;       // "YYYY-MM-DD" — date the payment applies to (for settlement period matching)
   month: string;          // "YYYY-MM" for grouping
   amount: number;
   groupId: string;        // Which group this payment is for

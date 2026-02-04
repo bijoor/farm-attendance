@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { getSyncUrl, setSyncUrl, pullData, pushData, checkServerStatus, hasDirtyFiles, clearAllDirtyFlags } from '../utils/sync';
 import Button from '../components/ui/Button';
-import { Loader2, Wifi, WifiOff, Play, Globe, AlertCircle, RefreshCw, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Loader2, Play, Globe, Download, Cloud } from 'lucide-react';
 
 // PWA Install prompt interface
 interface BeforeInstallPromptEvent extends Event {
@@ -27,27 +27,21 @@ const Home: React.FC = () => {
     setLanguage(isMarathi ? 'en' : 'mr');
   };
 
-  const [syncUrl, setSyncUrlState] = useState(getSyncUrl() || '');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
-  const [serverStatus, setServerStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
-  const [error, setError] = useState<string | null>(null);
-  const [pendingChanges, setPendingChanges] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [showSyncOptions, setShowSyncOptions] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncUrlInput, setSyncUrlInput] = useState(getSyncUrl() || '');
 
   // PWA Install state
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
 
-  // Check for unsaved changes on mount
-  useEffect(() => {
-    setPendingChanges(hasDirtyFiles());
-    // If there's a saved sync URL, show sync options
-    if (getSyncUrl()) {
-      setShowSyncOptions(true);
-    }
-  }, []);
+  // Save URL when input changes (on blur)
+  const handleSaveUrl = () => {
+    setSyncUrl(syncUrlInput || null);
+  };
+
+  // Get current sync URL for logic
+  const syncUrl = syncUrlInput;
 
   // Capture the PWA install prompt
   useEffect(() => {
@@ -85,103 +79,59 @@ const Home: React.FC = () => {
     setInstallPrompt(null);
   };
 
-  const handleCheckConnection = async () => {
+  const handleStart = async () => {
+    // If no sync URL configured, just start immediately
     if (!syncUrl) {
-      setError(isMarathi ? 'कृपया सर्व्हर URL प्रविष्ट करा' : 'Please enter server URL');
+      navigate(defaultPath);
       return;
     }
 
-    setIsChecking(true);
-    setError(null);
+    setIsStarting(true);
 
     try {
+      // Check if server is online (quick timeout)
       const online = await checkServerStatus(syncUrl);
-      setServerStatus(online ? 'online' : 'offline');
+
       if (!online) {
-        setError(isMarathi ? 'सर्व्हरशी कनेक्ट होऊ शकत नाही' : 'Cannot connect to server');
-      }
-    } catch {
-      setServerStatus('offline');
-      setError(isMarathi ? 'कनेक्शन तपासणी अयशस्वी' : 'Connection check failed');
-    } finally {
-      setIsChecking(false);
-    }
-  };
-
-  const handleSaveUrl = () => {
-    setSyncUrl(syncUrl || null);
-    setServerStatus('unknown');
-  };
-
-  const handleStartWithSync = async () => {
-    if (!syncUrl) {
-      setError(isMarathi ? 'कृपया सर्व्हर URL प्रविष्ट करा' : 'Please enter server URL');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    setStatusMessage(null);
-
-    try {
-      // First check if server is online
-      const online = await checkServerStatus(syncUrl);
-      if (!online) {
-        // Server offline - ask user if they want to continue offline
-        setServerStatus('offline');
-        setError(isMarathi
-          ? 'सर्व्हर ऑफलाइन आहे. ऑफलाइन मोडमध्ये सुरू ठेवा?'
-          : 'Server is offline. Continue in offline mode?');
-        setIsLoading(false);
+        // Server offline - start with local data silently
+        navigate(defaultPath);
         return;
       }
 
-      setServerStatus('online');
+      // Server is online - do transparent sync
+      setSyncStatus(isMarathi ? 'सिंक करत आहे...' : 'Syncing...');
 
-      // If there are pending changes, push them first
-      if (pendingChanges) {
-        setStatusMessage(isMarathi ? 'जतन न केलेले बदल सेव्ह करत आहे...' : 'Saving unsaved changes...');
-        const pushResult = await pushData(data);
-        if (pushResult.success) {
-          setPendingChanges(false);
-          setStatusMessage(isMarathi ? 'बदल सेव्ह झाले. डेटा लोड करत आहे...' : 'Changes saved. Loading data...');
-        } else {
-          setStatusMessage(isMarathi ? 'सेव्ह अयशस्वी, पण पुढे जात आहे...' : 'Save failed, but continuing...');
+      // If there are pending local changes, push them first
+      if (hasDirtyFiles()) {
+        try {
+          await pushData(data);
+        } catch {
+          // Push failed, continue anyway
         }
       }
 
-      // Pull data from server
-      setStatusMessage(isMarathi ? 'सर्व्हरवरून डेटा लोड करत आहे...' : 'Loading data from server...');
-      const result = await pullData();
-
-      if (result.success && result.data) {
-        const importSuccess = importData(JSON.stringify(result.data));
-        if (importSuccess) {
-          // Clear dirty flags after importing synced data
-          clearAllDirtyFlags();
-          navigate(defaultPath);
-        } else {
-          setError(isMarathi ? 'डेटा लोड अयशस्वी' : 'Failed to load data');
+      // Pull latest data from server
+      try {
+        const result = await pullData();
+        if (result.success && result.data) {
+          const importSuccess = importData(JSON.stringify(result.data));
+          if (importSuccess) {
+            clearAllDirtyFlags();
+          }
         }
-      } else if (result.success) {
-        // No data on server, just clear flags and proceed
-        clearAllDirtyFlags();
-        navigate(defaultPath);
-      } else {
-        setError(result.message);
+      } catch {
+        // Pull failed, continue with local data
       }
+
+      // Navigate regardless of sync result
+      navigate(defaultPath);
     } catch {
-      setError(isMarathi ? 'सत्र सुरू करण्यात अयशस्वी' : 'Failed to start session');
+      // Any error - just navigate with local data
+      navigate(defaultPath);
     } finally {
-      setIsLoading(false);
-      setStatusMessage(null);
+      setIsStarting(false);
+      setSyncStatus(null);
     }
-  };
-
-  const handleStartOffline = () => {
-    // Clear any error and proceed to attendance
-    setError(null);
-    navigate(defaultPath);
   };
 
   return (
@@ -206,128 +156,43 @@ const Home: React.FC = () => {
           </p>
         </div>
 
-        {/* Main Start Button - Always Available */}
+        {/* Main Start Button */}
         <Button
-          onClick={handleStartOffline}
+          onClick={handleStart}
+          disabled={isStarting}
           className="w-full py-4 text-lg flex items-center justify-center gap-2 mb-4"
         >
-          <Play size={24} />
-          {isMarathi ? 'सुरू करा' : 'Start'}
+          {isStarting ? (
+            <>
+              <Loader2 size={24} className="animate-spin" />
+              {syncStatus || (isMarathi ? 'सुरू होत आहे...' : 'Starting...')}
+            </>
+          ) : (
+            <>
+              <Play size={24} />
+              {isMarathi ? 'सुरू करा' : 'Start'}
+            </>
+          )}
         </Button>
 
-        {/* Pending Changes Warning */}
-        {pendingChanges && (
-          <div className="mb-4 p-3 bg-amber-50 text-amber-700 rounded-lg text-sm flex items-center gap-2">
-            <AlertCircle size={18} />
-            <span>
-              {isMarathi
-                ? 'जतन न केलेले बदल आहेत जे सर्व्हरशी सिंक करणे बाकी आहे.'
-                : 'You have unsaved changes pending sync to server.'}
-            </span>
-          </div>
-        )}
-
-        {/* Sync Options - Collapsible */}
-        <div className="border-t border-slate-200 pt-4 mt-4">
-          <button
-            onClick={() => setShowSyncOptions(!showSyncOptions)}
-            className="w-full flex items-center justify-between text-sm text-slate-600 hover:text-slate-800"
-          >
-            <span className="flex items-center gap-2">
-              <RefreshCw size={16} />
-              {isMarathi ? 'सर्व्हर सिंक पर्याय' : 'Server Sync Options'}
-            </span>
-            {showSyncOptions ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-
-          {showSyncOptions && (
-            <div className="mt-4 space-y-4">
-              {/* Server URL Input */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {isMarathi ? 'सर्व्हर URL' : 'Server URL'}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={syncUrl}
-                    onChange={e => setSyncUrlState(e.target.value)}
-                    onBlur={handleSaveUrl}
-                    placeholder="https://your-server.ts.net"
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-graminno-500 text-sm"
-                  />
-                  <button
-                    onClick={handleCheckConnection}
-                    disabled={isChecking || !syncUrl}
-                    className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50"
-                  >
-                    {isChecking ? (
-                      <Loader2 size={20} className="animate-spin text-slate-600" />
-                    ) : serverStatus === 'online' ? (
-                      <Wifi size={20} className="text-green-600" />
-                    ) : serverStatus === 'offline' ? (
-                      <WifiOff size={20} className="text-red-500" />
-                    ) : (
-                      <Wifi size={20} className="text-slate-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {serverStatus === 'online' && (
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <Wifi size={14} />
-                  {isMarathi ? 'सर्व्हर ऑनलाइन आहे' : 'Server is online'}
-                </p>
-              )}
-
-              {/* Error Message */}
-              {error && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              {/* Status Message */}
-              {statusMessage && (
-                <div className="p-3 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center gap-2">
-                  <Loader2 size={16} className="animate-spin" />
-                  {statusMessage}
-                </div>
-              )}
-
-              {/* Sync & Start Button */}
-              <Button
-                variant="secondary"
-                onClick={handleStartWithSync}
-                disabled={isLoading || !syncUrl}
-                className="w-full py-3 flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" />
-                    {statusMessage || (isMarathi ? 'लोड होत आहे...' : 'Loading...')}
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={20} />
-                    {isMarathi ? 'सिंक करा आणि सुरू करा' : 'Sync & Start'}
-                  </>
-                )}
-              </Button>
-
-              {/* Instructions */}
-              <div className="pt-4 border-t border-slate-100">
-                <h3 className="text-xs font-medium text-slate-500 mb-2">
-                  {isMarathi ? 'सूचना:' : 'Instructions:'}
-                </h3>
-                <ul className="text-xs text-slate-400 space-y-1">
-                  <li>• {isMarathi ? 'प्राथमिक डिव्हाइसवर सर्व्हर चालवा' : 'Run the server on your primary device'}</li>
-                  <li>• {isMarathi ? 'Tailscale/ngrok URL येथे प्रविष्ट करा' : 'Enter the Tailscale/ngrok URL here'}</li>
-                  <li>• {isMarathi ? 'बदल स्वयंचलितपणे सर्व्हरवर सेव्ह होतील' : 'Changes will auto-save to server'}</li>
-                </ul>
-              </div>
-            </div>
+        {/* Server URL Input */}
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+            <Cloud size={12} />
+            {isMarathi ? 'सर्व्हर URL (पर्यायी)' : 'Server URL (optional)'}
+          </label>
+          <input
+            type="url"
+            value={syncUrlInput}
+            onChange={e => setSyncUrlInput(e.target.value)}
+            onBlur={handleSaveUrl}
+            placeholder="https://your-server.ts.net"
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-graminno-500 text-sm"
+          />
+          {syncUrl && (
+            <p className="text-xs text-slate-400 mt-1">
+              {isMarathi ? 'सुरू करताना स्वयंचलित सिंक होईल' : 'Will auto-sync on start'}
+            </p>
           )}
         </div>
 

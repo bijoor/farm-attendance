@@ -45,7 +45,7 @@ const AdminLayout: React.FC = () => {
     { path: '/admin/expenses', icon: Wallet, label: isMarathi ? 'खर्च' : 'Expenses' },
     { path: '/admin/payments', icon: CreditCard, label: isMarathi ? 'पेमेंट' : 'Payments' },
     { path: '/admin/reports', icon: BarChart3, label: t('reports') },
-    { path: '/admin/labour-cost', icon: IndianRupee, label: t('labourCost') },
+    { path: '/admin/accounts', icon: IndianRupee, label: isMarathi ? 'खाते' : 'Accounts' },
     { path: '/admin/settings', icon: Settings, label: t('settings') },
   ];
 

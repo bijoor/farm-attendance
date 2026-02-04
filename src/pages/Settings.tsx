@@ -79,7 +79,9 @@ const Settings: React.FC = () => {
 
   // Server update state
   const [serverVersion, setServerVersion] = useState<string | null>(null);
+  const [githubVersion, setGithubVersion] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isCheckingGithub, setIsCheckingGithub] = useState(false);
 
   // Check server status on mount and when URL changes
   useEffect(() => {
@@ -106,6 +108,36 @@ const Settings: React.FC = () => {
     };
     checkStatus();
   }, [syncUrl]);
+
+  const handleCheckGithubVersion = async () => {
+    setIsCheckingGithub(true);
+    try {
+      const res = await fetch('https://raw.githubusercontent.com/bijoor/farm-attendance/main/package.json');
+      if (res.ok) {
+        const data = await res.json();
+        setGithubVersion(data.version);
+        setImportStatus({
+          type: 'success',
+          message: isMarathi
+            ? `GitHub आवृत्ती: ${data.version}`
+            : `GitHub version: ${data.version}`
+        });
+      } else {
+        setImportStatus({
+          type: 'error',
+          message: isMarathi ? 'GitHub तपासणी अयशस्वी' : 'Failed to check GitHub'
+        });
+      }
+    } catch {
+      setImportStatus({
+        type: 'error',
+        message: isMarathi ? 'GitHub शी कनेक्ट होऊ शकले नाही' : 'Could not connect to GitHub'
+      });
+    } finally {
+      setIsCheckingGithub(false);
+      setTimeout(() => setImportStatus(null), 3000);
+    }
+  };
 
   const handleSaveSyncUrl = () => {
     setSyncUrl(syncUrl || null);
@@ -407,7 +439,128 @@ const Settings: React.FC = () => {
         )}
       </div>
 
-      {/* P2P Sync */}
+      {/* Server Management */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Server size={20} className="text-graminno-600" />
+          <h2 className="text-lg font-semibold text-slate-800">
+            {isMarathi ? 'सर्व्हर व्यवस्थापन' : 'Server Management'}
+          </h2>
+          {isServerOnline === true && (
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+              {isMarathi ? 'ऑनलाइन' : 'Online'}
+            </span>
+          )}
+          {isServerOnline === false && (
+            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+              {isMarathi ? 'ऑफलाइन' : 'Offline'}
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {/* Server URL */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {isMarathi ? 'सर्व्हर URL' : 'Server URL'}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={syncUrl}
+                onChange={e => setSyncUrlState(e.target.value)}
+                placeholder={isMarathi ? 'https://your-server.domain.com' : 'https://your-server.domain.com'}
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-graminno-500"
+              />
+              <Button variant="secondary" onClick={handleSaveSyncUrl}>
+                {isMarathi ? 'जतन' : 'Save'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Version Info */}
+          {syncUrl && (
+            <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700">
+                  {isMarathi ? 'सर्व्हर आवृत्ती:' : 'Server version:'}
+                </span>
+                <span className="bg-white px-2 py-0.5 rounded font-mono text-sm border border-slate-200">
+                  {serverVersion || '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700">
+                  {isMarathi ? 'GitHub आवृत्ती:' : 'GitHub version:'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="bg-white px-2 py-0.5 rounded font-mono text-sm border border-slate-200">
+                    {githubVersion || '—'}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCheckGithubVersion}
+                    disabled={isCheckingGithub}
+                    className="px-2 py-1"
+                  >
+                    {isCheckingGithub ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={14} />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {serverVersion && githubVersion && serverVersion !== githubVersion && (
+                <div className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded border border-amber-200">
+                  {isMarathi ? 'नवीन आवृत्ती उपलब्ध!' : 'New version available!'}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Server Actions */}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleCheckConnection}
+              disabled={!syncUrl}
+            >
+              {isMarathi ? 'कनेक्शन तपासा' : 'Check Connection'}
+            </Button>
+            {syncUrl && isServerOnline && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleServerUpdate}
+                disabled={isUpdating}
+                className="flex items-center gap-2"
+              >
+                {isUpdating ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                {isUpdating
+                  ? (isMarathi ? 'अपडेट होत आहे...' : 'Updating...')
+                  : (isMarathi ? 'सर्व्हर अपडेट करा' : 'Update Server')}
+              </Button>
+            )}
+          </div>
+
+          {syncUrl && isServerOnline && (
+            <p className="text-xs text-slate-500">
+              {isMarathi
+                ? 'सर्व्हर दर 6 तासांनी GitHub वरून अपडेट तपासतो.'
+                : 'Server auto-checks for updates from GitHub every 6 hours.'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Data Sync */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
         <div className="flex items-center gap-2 mb-4">
           {isServerOnline === true && <Cloud size={20} className="text-green-600" />}
@@ -416,11 +569,6 @@ const Settings: React.FC = () => {
           <h2 className="text-lg font-semibold text-slate-800">
             {isMarathi ? 'डेटा सिंक' : 'Data Sync'}
           </h2>
-          {isServerOnline === true && (
-            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-              {isMarathi ? 'ऑनलाइन' : 'Online'}
-            </span>
-          )}
         </div>
 
         <p className="text-slate-600 text-sm mb-4">
@@ -430,19 +578,6 @@ const Settings: React.FC = () => {
         </p>
 
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <input
-              type="url"
-              value={syncUrl}
-              onChange={e => setSyncUrlState(e.target.value)}
-              placeholder={isMarathi ? 'https://your-tunnel.domain.com' : 'https://your-tunnel.domain.com'}
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-graminno-500"
-            />
-            <Button variant="secondary" onClick={handleSaveSyncUrl}>
-              {isMarathi ? 'जतन' : 'Save'}
-            </Button>
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant="secondary"
@@ -472,63 +607,14 @@ const Settings: React.FC = () => {
             </Button>
           </div>
 
-          <div className="flex justify-center">
-            <Button variant="secondary" size="sm" onClick={handleCheckConnection} disabled={!syncUrl}>
-              {isMarathi ? 'कनेक्शन तपासा' : 'Check Connection'}
-            </Button>
-          </div>
-
           {lastSync && (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 text-center">
               {isMarathi ? 'शेवटचे सिंक: ' : 'Last synced: '}
               {formatLastSync(lastSync, isMarathi)}
             </p>
           )}
         </div>
       </div>
-
-      {/* Server Management */}
-      {syncUrl && isServerOnline && (
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Server size={20} className="text-graminno-600" />
-            <h2 className="text-lg font-semibold text-slate-800">
-              {isMarathi ? 'सर्व्हर व्यवस्थापन' : 'Server Management'}
-            </h2>
-          </div>
-
-          <div className="space-y-4">
-            {serverVersion && (
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span className="font-medium">{isMarathi ? 'सध्याची आवृत्ती:' : 'Current version:'}</span>
-                <span className="bg-slate-100 px-2 py-0.5 rounded font-mono">{serverVersion}</span>
-              </div>
-            )}
-
-            <p className="text-slate-600 text-sm">
-              {isMarathi
-                ? 'सर्व्हर दर 6 तासांनी GitHub वरून अपडेट तपासतो. तात्काळ अपडेट करण्यासाठी खालील बटण वापरा.'
-                : 'Server checks for updates from GitHub every 6 hours. Use the button below to trigger an immediate update check.'}
-            </p>
-
-            <Button
-              variant="secondary"
-              onClick={handleServerUpdate}
-              disabled={isUpdating}
-              className="flex items-center gap-2"
-            >
-              {isUpdating ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <RefreshCw size={18} />
-              )}
-              {isUpdating
-                ? (isMarathi ? 'अपडेट होत आहे...' : 'Updating...')
-                : (isMarathi ? 'सर्व्हर अपडेट करा' : 'Update Server')}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Export Data */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
