@@ -7,6 +7,7 @@ export interface Worker {
   status: 'active' | 'inactive';
   joinedDate?: string;
   notes?: string;
+  modifiedAt?: string;    // Timestamp of last modification for sync conflict resolution
   deleted?: boolean;      // Soft delete flag for sync
   deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
@@ -20,6 +21,7 @@ export interface Area {
   marathiName?: string;   // Marathi name
   description?: string;
   groupId?: string;       // Reference to the group/farm this area belongs to
+  modifiedAt?: string;    // Timestamp of last modification for sync conflict resolution
   deleted?: boolean;      // Soft delete flag for sync
   deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
@@ -32,6 +34,7 @@ export interface Activity {
   name: string;           // English name
   marathiName?: string;   // Marathi name
   category?: string;
+  modifiedAt?: string;    // Timestamp of last modification for sync conflict resolution
   deleted?: boolean;      // Soft delete flag for sync
   deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
@@ -43,6 +46,7 @@ export interface Group {
   marathiName?: string;   // Marathi name (e.g., "गट अ")
   status: 'active' | 'inactive';
   order?: number;         // Display order (lower numbers appear first)
+  modifiedAt?: string;    // Timestamp of last modification for sync conflict resolution
   deleted?: boolean;      // Soft delete flag for sync
   deletedAt?: string;     // Timestamp of deletion for sync conflict resolution
 }
@@ -55,6 +59,7 @@ export interface ExpenseCategory {
   name: string;           // English name
   marathiName?: string;
   status: 'active' | 'inactive';
+  modifiedAt?: string;
   deleted?: boolean;
   deletedAt?: string;
 }

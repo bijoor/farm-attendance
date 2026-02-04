@@ -55,23 +55,108 @@ body {
   background: #94a3b8;
 }
 
-/* Print styles */
+/* Print styles — use !important to override Tailwind CSS layers */
 @media print {
-  .no-print {
+  .no-print,
+  .no-print * {
     display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
   }
 
   .print-only {
     display: block !important;
+    visibility: visible !important;
+    height: auto !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body {
-    background: white;
+    background: white !important;
+    font-size: 12px;
+  }
+
+  /* Hide sidebar, mobile header, bottom nav — defence-in-depth */
+  header,
+  aside,
+  nav {
+    display: none !important;
+  }
+
+  /* Reset main content layout — remove sidebar offset and top padding */
+  main {
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  /* Remove bottom padding meant for mobile nav */
+  .pb-20 {
+    padding-bottom: 0 !important;
+  }
+
+  /* Force white backgrounds on page and containers */
+  div.min-h-screen,
+  .bg-slate-50,
+  .bg-slate-100 {
+    background-color: white !important;
+  }
+
+  /* Remove shadows and round corners for clean print */
+  .shadow-sm,
+  .shadow-md {
+    box-shadow: none !important;
+  }
+
+  .rounded-xl {
+    border-radius: 4px !important;
+  }
+
+  /* Group statement cards — avoid page breaks inside */
+  .print-group-card {
+    break-inside: avoid;
+    margin-bottom: 8px;
+  }
+
+  /* Tables — add visible borders for print */
+  table {
+    border-collapse: collapse;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #cbd5e1;
+    padding: 4px 8px;
+  }
+
+  /* Print header styling */
+  .print-header {
+    text-align: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #334155;
+  }
+
+  .print-header h1 {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1e293b;
+    margin: 0;
+  }
+
+  .print-header p {
+    font-size: 13px;
+    color: #64748b;
+    margin: 4px 0 0;
   }
 }
 
 .print-only {
-  display: none;
+  display: none !important;
 }
 
 /* Attendance cell styles */

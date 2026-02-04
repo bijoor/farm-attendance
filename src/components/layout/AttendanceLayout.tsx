@@ -10,7 +10,6 @@ import {
   Globe,
   Home,
   Cloud,
-  Printer,
   Calendar,
   IndianRupee,
   Wallet,
@@ -65,13 +64,6 @@ const AttendanceLayout: React.FC = () => {
     icon: Calendar,
   }));
 
-  // Add Print and Labour Cost at the end
-  navItems.push({
-    path: '/print',
-    label: t('print'),
-    icon: Printer,
-  });
-
   navItems.push({
     path: '/accounts',
     label: isMarathi ? 'खाते' : 'Accounts',
@@ -103,7 +95,7 @@ const AttendanceLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-graminno-600 text-white flex items-center justify-between px-4 z-50 shadow-md">
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-graminno-600 text-white flex items-center justify-between px-4 z-50 shadow-md no-print">
         <button
           onClick={() => setSidebarOpen(true)}
           className="p-2 hover:bg-graminno-700 rounded-lg transition-colors"
@@ -134,7 +126,7 @@ const AttendanceLayout: React.FC = () => {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-50"
+          className="lg:hidden fixed inset-0 bg-black/50 z-50 no-print"
           onClick={closeSidebar}
         />
       )}
@@ -142,7 +134,7 @@ const AttendanceLayout: React.FC = () => {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-full w-64 bg-graminno-600 text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col
+          fixed top-0 left-0 h-full w-64 bg-graminno-600 text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col no-print
           lg:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
@@ -234,7 +226,7 @@ const AttendanceLayout: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation - Groups + accounting pages */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 no-print">
         <div className="flex justify-around items-center h-16">
           {[
             ...navItems.slice(0, Math.min(activeGroups.length, 2)),

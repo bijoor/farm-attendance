@@ -133,14 +133,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Worker operations
   const addWorker = (worker: Omit<Worker, 'id'>) => {
-    const newWorker: Worker = { ...worker, id: uuidv4() };
+    const now = new Date().toISOString();
+    const newWorker: Worker = { ...worker, id: uuidv4(), modifiedAt: now };
     setData(prev => ({ ...prev, workers: [...prev.workers, newWorker] }));
   };
 
   const updateWorker = (id: string, workerUpdate: Partial<Worker>) => {
     setData(prev => ({
       ...prev,
-      workers: prev.workers.map(w => (w.id === id ? { ...w, ...workerUpdate } : w)),
+      workers: prev.workers.map(w => (w.id === id ? { ...w, ...workerUpdate, modifiedAt: new Date().toISOString() } : w)),
     }));
   };
 
@@ -148,21 +149,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       workers: prev.workers.map(w =>
-        w.id === id ? { ...w, deleted: true, deletedAt: new Date().toISOString() } : w
+        w.id === id ? { ...w, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : w
       ),
     }));
   };
 
   // Area operations
   const addArea = (area: Omit<Area, 'id'>) => {
-    const newArea: Area = { ...area, id: uuidv4() };
+    const now = new Date().toISOString();
+    const newArea: Area = { ...area, id: uuidv4(), modifiedAt: now };
     setData(prev => ({ ...prev, areas: [...prev.areas, newArea] }));
   };
 
   const updateArea = (id: string, areaUpdate: Partial<Area>) => {
     setData(prev => ({
       ...prev,
-      areas: prev.areas.map(a => (a.id === id ? { ...a, ...areaUpdate } : a)),
+      areas: prev.areas.map(a => (a.id === id ? { ...a, ...areaUpdate, modifiedAt: new Date().toISOString() } : a)),
     }));
   };
 
@@ -170,21 +172,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       areas: prev.areas.map(a =>
-        a.id === id ? { ...a, deleted: true, deletedAt: new Date().toISOString() } : a
+        a.id === id ? { ...a, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : a
       ),
     }));
   };
 
   // Activity operations
   const addActivity = (activity: Omit<Activity, 'id'>) => {
-    const newActivity: Activity = { ...activity, id: uuidv4() };
+    const now = new Date().toISOString();
+    const newActivity: Activity = { ...activity, id: uuidv4(), modifiedAt: now };
     setData(prev => ({ ...prev, activities: [...prev.activities, newActivity] }));
   };
 
   const updateActivity = (id: string, activityUpdate: Partial<Activity>) => {
     setData(prev => ({
       ...prev,
-      activities: prev.activities.map(a => (a.id === id ? { ...a, ...activityUpdate } : a)),
+      activities: prev.activities.map(a => (a.id === id ? { ...a, ...activityUpdate, modifiedAt: new Date().toISOString() } : a)),
     }));
   };
 
@@ -192,7 +195,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       activities: prev.activities.map(a =>
-        a.id === id ? { ...a, deleted: true, deletedAt: new Date().toISOString() } : a
+        a.id === id ? { ...a, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : a
       ),
     }));
   };
@@ -203,7 +206,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const existingGroups = prev.groups || [];
       // Auto-assign order: max existing order + 1
       const maxOrder = existingGroups.reduce((max, g) => Math.max(max, g.order ?? 0), 0);
-      const newGroup: Group = { ...group, id: uuidv4(), order: maxOrder + 1 };
+      const newGroup: Group = { ...group, id: uuidv4(), order: maxOrder + 1, modifiedAt: new Date().toISOString() };
       return { ...prev, groups: [...existingGroups, newGroup] };
     });
   };
@@ -211,7 +214,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateGroup = (id: string, groupUpdate: Partial<Group>) => {
     setData(prev => ({
       ...prev,
-      groups: (prev.groups || []).map(g => (g.id === id ? { ...g, ...groupUpdate } : g)),
+      groups: (prev.groups || []).map(g => (g.id === id ? { ...g, ...groupUpdate, modifiedAt: new Date().toISOString() } : g)),
     }));
   };
 
@@ -220,7 +223,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       groups: (prev.groups || []).map(g =>
-        g.id === id ? { ...g, deleted: true, deletedAt: new Date().toISOString() } : g
+        g.id === id ? { ...g, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : g
       ),
     }));
   };
@@ -247,9 +250,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const currentOrder = currentGroup.order ?? currentIndex;
       const targetOrder = targetGroup.order ?? targetIndex;
 
+      const now = new Date().toISOString();
       const updatedGroups = groups.map(g => {
-        if (g.id === currentGroup.id) return { ...g, order: targetOrder };
-        if (g.id === targetGroup.id) return { ...g, order: currentOrder };
+        if (g.id === currentGroup.id) return { ...g, order: targetOrder, modifiedAt: now };
+        if (g.id === targetGroup.id) return { ...g, order: currentOrder, modifiedAt: now };
         return g;
       });
 
@@ -259,7 +263,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Expense Category operations
   const addExpenseCategory = (category: Omit<ExpenseCategory, 'id'>) => {
-    const newCategory: ExpenseCategory = { ...category, id: uuidv4() };
+    const newCategory: ExpenseCategory = { ...category, id: uuidv4(), modifiedAt: new Date().toISOString() };
     setData(prev => ({
       ...prev,
       expenseCategories: [...(prev.expenseCategories || []), newCategory],
@@ -270,7 +274,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       expenseCategories: (prev.expenseCategories || []).map(c =>
-        c.id === id ? { ...c, ...categoryUpdate } : c
+        c.id === id ? { ...c, ...categoryUpdate, modifiedAt: new Date().toISOString() } : c
       ),
     }));
   };
@@ -280,17 +284,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       expenseCategories: (prev.expenseCategories || []).map(c =>
-        c.id === id ? { ...c, deleted: true, deletedAt: new Date().toISOString() } : c
+        c.id === id ? { ...c, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : c
       ),
     }));
   };
 
   // Expense operations
   const addExpense = (expense: Omit<SundryExpense, 'id' | 'createdAt'>) => {
+    const now = new Date().toISOString();
     const newExpense: SundryExpense = {
       ...expense,
       id: uuidv4(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      modifiedAt: now,
     };
     setData(prev => ({
       ...prev,
@@ -312,7 +318,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       expenses: (prev.expenses || []).map(e =>
-        e.id === id ? { ...e, deleted: true, deletedAt: new Date().toISOString() } : e
+        e.id === id ? { ...e, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : e
       ),
     }));
   };
@@ -337,10 +343,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Payment operations
   const addPayment = (payment: Omit<Payment, 'id' | 'createdAt'>) => {
+    const now = new Date().toISOString();
     const newPayment: Payment = {
       ...payment,
       id: uuidv4(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      modifiedAt: now,
     };
     setData(prev => ({
       ...prev,
@@ -362,7 +370,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       payments: (prev.payments || []).map(p =>
-        p.id === id ? { ...p, deleted: true, deletedAt: new Date().toISOString() } : p
+        p.id === id ? { ...p, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : p
       ),
     }));
   };
@@ -381,10 +389,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Settlement Period operations
   const addSettlementPeriod = (period: Omit<SettlementPeriod, 'id' | 'createdAt'>) => {
+    const now = new Date().toISOString();
     const newPeriod: SettlementPeriod = {
       ...period,
       id: uuidv4(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      modifiedAt: now,
     };
     setData(prev => ({
       ...prev,
@@ -405,7 +415,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setData(prev => ({
       ...prev,
       settlementPeriods: (prev.settlementPeriods || []).map(p =>
-        p.id === id ? { ...p, deleted: true, deletedAt: new Date().toISOString() } : p
+        p.id === id ? { ...p, deleted: true, deletedAt: new Date().toISOString(), modifiedAt: new Date().toISOString() } : p
       ),
     }));
   };

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import PageHeader from '../components/layout/PageHeader';
+import AccountStatement from '../components/AccountStatement';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { format, parseISO } from 'date-fns';
@@ -9,9 +10,8 @@ import {
   calculateLabourCostByGroupForPeriod,
   calculateExpensesByGroupForPeriod,
   calculatePaymentsByGroupForPeriod,
-  formatCurrency,
 } from '../utils/calculations';
-import { Plus, ChevronDown, ChevronUp, Pencil, Trash2, X, Check, Users2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check } from 'lucide-react';
 import type { SettlementPeriod } from '../types';
 
 const Settlements: React.FC = () => {
@@ -19,7 +19,6 @@ const Settlements: React.FC = () => {
   const isMarathi = settings.language === 'mr';
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -67,63 +66,6 @@ const Settlements: React.FC = () => {
     return calculatePaymentsByGroupForPeriod(data, selectedPeriod.startDate, selectedPeriod.endDate);
   }, [data, selectedPeriod]);
 
-  const grandTotals = useMemo(() => {
-    return balanceReport.reduce((acc, g) => ({
-      openingBalance: acc.openingBalance + g.openingBalance,
-      labourCost: acc.labourCost + g.labourCost,
-      expenseCost: acc.expenseCost + g.expenseCost,
-      totalCost: acc.totalCost + g.totalCost,
-      totalPayments: acc.totalPayments + g.totalPayments,
-      labourPayments: acc.labourPayments + g.labourPayments,
-      expensePayments: acc.expensePayments + g.expensePayments,
-      currentMonthBalance: acc.currentMonthBalance + g.currentMonthBalance,
-      closingBalance: acc.closingBalance + g.closingBalance,
-      labourBalance: acc.labourBalance + g.labourBalance,
-      expenseBalance: acc.expenseBalance + g.expenseBalance,
-    }), {
-      openingBalance: 0,
-      labourCost: 0,
-      expenseCost: 0,
-      totalCost: 0,
-      totalPayments: 0,
-      labourPayments: 0,
-      expensePayments: 0,
-      currentMonthBalance: 0,
-      closingBalance: 0,
-      labourBalance: 0,
-      expenseBalance: 0,
-    });
-  }, [balanceReport]);
-
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  };
-
-  const expandAll = () => setExpandedGroups(new Set(balanceReport.map(g => g.groupId)));
-  const collapseAll = () => setExpandedGroups(new Set());
-
-  const getGroupName = (group: { groupName: string; marathiName?: string }) => {
-    if (isMarathi && group.marathiName) return group.marathiName;
-    return group.groupName;
-  };
-
-  const getWorkerName = (worker: { workerName: string; marathiName?: string }) => {
-    if (isMarathi && worker.marathiName) return worker.marathiName;
-    return worker.workerName;
-  };
-
-  const formatBalance = (amount: number) => {
-    if (amount < 0) {
-      return { text: formatCurrency(Math.abs(amount)), suffix: isMarathi ? ' (जमा)' : ' (Cr)', color: 'text-green-700' };
-    }
-    return { text: formatCurrency(amount), suffix: '', color: amount > 0 ? 'text-red-700' : 'text-slate-800' };
-  };
-
   const formatDateRange = (p: SettlementPeriod) => {
     const start = format(parseISO(p.startDate), 'dd MMM yyyy');
     const end = format(parseISO(p.endDate), 'dd MMM yyyy');
@@ -169,13 +111,15 @@ const Settlements: React.FC = () => {
 
   return (
     <div className="pb-20 lg:pb-0">
-      <PageHeader
-        title={isMarathi ? 'तहकूब' : 'Settlements'}
-        subtitle={isMarathi ? 'सानुकूल कालावधीसाठी खाते' : 'Accounts for custom date ranges'}
-      />
+      <div className="no-print">
+        <PageHeader
+          title={isMarathi ? 'तहकूब' : 'Settlements'}
+          subtitle={isMarathi ? 'सानुकूल कालावधीसाठी खाते' : 'Accounts for custom date ranges'}
+        />
+      </div>
 
       {/* Period management */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 mb-6 no-print">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <span className="font-semibold text-sm text-slate-700">
             {isMarathi ? 'कालावधी' : 'Periods'}
@@ -188,7 +132,6 @@ const Settlements: React.FC = () => {
           )}
         </div>
 
-        {/* Add/Edit form */}
         {showForm && (
           <form onSubmit={handleSubmit} className="p-4 border-b border-slate-100 bg-slate-50">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -249,7 +192,6 @@ const Settlements: React.FC = () => {
           </form>
         )}
 
-        {/* Period list */}
         {periods.length === 0 && !showForm && (
           <div className="p-6 text-center text-sm text-slate-500">
             {isMarathi ? 'कोणताही कालावधी नाही. नवीन जोडा.' : 'No periods defined. Add one to get started.'}
@@ -292,386 +234,16 @@ const Settlements: React.FC = () => {
 
       {/* Statement for selected period */}
       {selectedPeriod && (
-        <>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-semibold text-slate-800">
-                {isMarathi && selectedPeriod.marathiName ? selectedPeriod.marathiName : selectedPeriod.name}
-              </h2>
-              <p className="text-xs text-slate-500">{formatDateRange(selectedPeriod)}</p>
-            </div>
-            {balanceReport.length > 0 && (
-              <div className="flex gap-2">
-                <button onClick={expandAll} className="text-sm text-graminno-600 hover:text-graminno-700 flex items-center gap-1">
-                  <ChevronDown size={16} /> {isMarathi ? 'सर्व उघडा' : 'Expand All'}
-                </button>
-                <span className="text-slate-300">|</span>
-                <button onClick={collapseAll} className="text-sm text-graminno-600 hover:text-graminno-700 flex items-center gap-1">
-                  <ChevronUp size={16} /> {isMarathi ? 'सर्व बंद करा' : 'Collapse All'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {balanceReport.length === 0 && (
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-slate-100 text-center">
-              <Users2 className="mx-auto h-12 w-12 text-slate-300 mb-4" />
-              <p className="text-slate-500">
-                {isMarathi ? 'या कालावधीसाठी कोणताही डेटा नाही' : 'No data for this period'}
-              </p>
-            </div>
-          )}
-
-          {/* Per-group statements */}
-          <div className="space-y-4">
-            {balanceReport.map(group => {
-              const isExpanded = expandedGroups.has(group.groupId);
-              const labourData = labourCostData.find(l => l.groupId === group.groupId);
-              const groupExpenses = expenseData.find(e => e.groupId === group.groupId);
-              const groupPayments = paymentData.find(p => p.groupId === group.groupId);
-              const closing = formatBalance(group.closingBalance);
-
-              return (
-                <div key={group.groupId} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                  <button
-                    onClick={() => toggleGroup(group.groupId)}
-                    className="w-full text-left px-4 py-4 hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <span className="font-semibold text-slate-800">{getGroupName(group)}</span>
-                        {group.marathiName && (
-                          <span className="text-xs text-slate-400 ml-2">
-                            {isMarathi ? group.groupName : group.marathiName}
-                          </span>
-                        )}
-                      </div>
-                      {isExpanded
-                        ? <ChevronUp className="h-5 w-5 text-slate-400 shrink-0" />
-                        : <ChevronDown className="h-5 w-5 text-slate-400 shrink-0" />
-                      }
-                    </div>
-                    <div className="space-y-1 text-sm">
-                      {group.openingBalance !== 0 && (
-                        <div className="flex justify-between text-slate-500">
-                          <span>{isMarathi ? 'मागील बाकी' : 'Opening Balance'}</span>
-                          <span className={group.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}>
-                            {group.openingBalance < 0
-                              ? `${formatCurrency(Math.abs(group.openingBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                              : formatCurrency(group.openingBalance)
-                            }
-                          </span>
-                        </div>
-                      )}
-                      {group.labourCost > 0 && (
-                        <div className="flex justify-between text-slate-600">
-                          <span>(+) {isMarathi ? 'मजूर' : 'Labour'}</span>
-                          <span>{formatCurrency(group.labourCost)}</span>
-                        </div>
-                      )}
-                      {group.expenseCost > 0 && (
-                        <div className="flex justify-between text-slate-600">
-                          <span>(+) {isMarathi ? 'खर्च' : 'Expenses'}</span>
-                          <span>{formatCurrency(group.expenseCost)}</span>
-                        </div>
-                      )}
-                      {group.totalPayments > 0 && (
-                        <div className="flex justify-between text-slate-600">
-                          <span>(-) {isMarathi ? 'भरले' : 'Payments'}</span>
-                          <span className="text-green-700">{formatCurrency(group.totalPayments)}</span>
-                        </div>
-                      )}
-                      <div className="border-t border-slate-200 pt-1 mt-1 space-y-1">
-                        {group.labourBalance !== 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-600">{isMarathi ? 'मजूर बाकी' : 'Labour Balance'}</span>
-                            <span className={group.labourBalance > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
-                              {group.labourBalance < 0
-                                ? `${formatCurrency(Math.abs(group.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                                : formatCurrency(group.labourBalance)
-                              }
-                            </span>
-                          </div>
-                        )}
-                        {group.expenseBalance !== 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-600">{isMarathi ? 'खर्च बाकी' : 'Expense Balance'}</span>
-                            <span className={group.expenseBalance > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
-                              {group.expenseBalance < 0
-                                ? `${formatCurrency(Math.abs(group.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                                : formatCurrency(group.expenseBalance)
-                              }
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between font-semibold border-t border-slate-100 pt-1">
-                          <span className="text-slate-700">
-                            {group.closingBalance < 0
-                              ? (isMarathi ? 'जमा शिल्लक' : 'Credit Balance')
-                              : (isMarathi ? 'बाकी रक्कम' : 'Balance Due')
-                            }
-                          </span>
-                          <span className={closing.color}>{closing.text}{closing.suffix}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="border-t border-slate-200 px-4 py-3">
-                      {labourData && labourData.workers.length > 0 && (
-                        <div className="mb-4">
-                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                            {isMarathi ? 'मजूर खर्च' : 'Labour Costs'}
-                          </div>
-                          <div className="space-y-1 text-sm">
-                            {labourData.workers.map(worker => (
-                              <div key={worker.workerId} className="flex justify-between items-baseline">
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-slate-700">{getWorkerName(worker)}</span>
-                                  {worker.marathiName && (
-                                    <span className="text-xs text-slate-400 ml-1">
-                                      {isMarathi ? worker.workerName : worker.marathiName}
-                                    </span>
-                                  )}
-                                  <span className="text-slate-400 text-xs ml-1">
-                                    {worker.totalDays}d × {formatCurrency(worker.dailyRate)}
-                                  </span>
-                                </div>
-                                <span className="text-slate-800 font-medium ml-2 tabular-nums">
-                                  {formatCurrency(worker.totalCost)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex justify-between text-sm font-semibold text-slate-700 mt-1 pt-1 border-t border-dashed border-slate-200">
-                            <span>{isMarathi ? 'एकूण मजूर' : 'Subtotal Labour'}</span>
-                            <span className="tabular-nums">{formatCurrency(labourData.totalCost)}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {groupExpenses && groupExpenses.expenses.length > 0 && (
-                        <div className="mb-4">
-                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                            {isMarathi ? 'इतर खर्च' : 'Other Expenses'}
-                          </div>
-                          <div className="space-y-1 text-sm">
-                            {groupExpenses.expenses.map(expense => (
-                              <div key={expense.id} className="flex justify-between items-baseline">
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-slate-400 text-xs mr-2">
-                                    {format(parseISO(expense.date), 'dd MMM')}
-                                  </span>
-                                  <span className="text-slate-700">{expense.description}</span>
-                                  {expense.isShared && (
-                                    <span className="text-xs text-amber-600 ml-1">
-                                      ({isMarathi ? 'सामायिक' : 'Shared'})
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-slate-800 font-medium ml-2 tabular-nums">
-                                  {expense.isShared ? formatCurrency(expense.allocatedAmount || 0) : formatCurrency(expense.amount)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex justify-between text-sm font-semibold text-slate-700 mt-1 pt-1 border-t border-dashed border-slate-200">
-                            <span>{isMarathi ? 'एकूण खर्च' : 'Subtotal Expenses'}</span>
-                            <span className="tabular-nums">{formatCurrency(groupExpenses.totalExpenses)}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {groupPayments && groupPayments.payments.length > 0 && (
-                        <div className="mb-2">
-                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                            {isMarathi ? 'पेमेंट' : 'Payments'}
-                          </div>
-                          <div className="space-y-1 text-sm">
-                            {groupPayments.payments.map(payment => (
-                              <div key={payment.id} className="flex justify-between items-baseline">
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-slate-400 text-xs mr-2">
-                                    {format(parseISO(payment.date), 'dd MMM')}
-                                  </span>
-                                  <span className="text-slate-700">{payment.description || (isMarathi ? 'पेमेंट' : 'Payment')}</span>
-                                  <span className={`ml-1 text-xs px-1.5 py-0.5 rounded ${
-                                    payment.paymentFor === 'expense' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
-                                  }`}>
-                                    {payment.paymentFor === 'expense' ? (isMarathi ? 'खर्च' : 'Exp') : (isMarathi ? 'मजूर' : 'Lab')}
-                                  </span>
-                                </div>
-                                <span className="text-green-700 font-medium ml-2 tabular-nums">
-                                  {formatCurrency(payment.amount)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex justify-between text-sm font-semibold text-slate-700 mt-1 pt-1 border-t border-dashed border-slate-200">
-                            <span>{isMarathi ? 'एकूण पेमेंट' : 'Total Payments'}</span>
-                            <span className="tabular-nums text-green-700">{formatCurrency(groupPayments.totalPayments)}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {(!labourData || labourData.workers.length === 0) &&
-                       (!groupExpenses || groupExpenses.expenses.length === 0) &&
-                       (!groupPayments || groupPayments.payments.length === 0) && (
-                        <div className="text-sm text-slate-500 text-center py-2">
-                          {isMarathi ? 'या कालावधीत कोणताही तपशील नाही' : 'No details for this period'}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Grand Summary Table */}
-          {balanceReport.length > 0 && (
-            <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-                <span className="font-semibold text-slate-700 text-sm">
-                  {isMarathi ? 'सारांश' : 'Summary'}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="text-left py-2 px-3 font-medium text-slate-600">{isMarathi ? 'गट' : 'Group'}</th>
-                      <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'मागील' : 'Opening'}</th>
-                      <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'मजूर' : 'Labour'}</th>
-                      <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'खर्च' : 'Expense'}</th>
-                      <th className="text-right py-2 px-3 font-medium text-slate-600">{isMarathi ? 'भरले' : 'Paid'}</th>
-                      <th className="text-right py-2 px-3 font-medium text-blue-600">{isMarathi ? 'मजूर बाकी' : 'Lab Due'}</th>
-                      <th className="text-right py-2 px-3 font-medium text-amber-600">{isMarathi ? 'खर्च बाकी' : 'Exp Due'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {balanceReport.map(group => {
-                      return (
-                        <tr key={group.groupId} className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-700 font-medium">{getGroupName(group)}</td>
-                          <td className="py-2 px-3 text-right tabular-nums text-slate-600">
-                            {group.openingBalance !== 0 ? (
-                              <span className={group.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}>
-                                {group.openingBalance < 0
-                                  ? `${formatCurrency(Math.abs(group.openingBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                                  : formatCurrency(group.openingBalance)
-                                }
-                              </span>
-                            ) : '–'}
-                          </td>
-                          <td className="py-2 px-3 text-right tabular-nums text-slate-600">
-                            {group.labourCost > 0 ? formatCurrency(group.labourCost) : '–'}
-                          </td>
-                          <td className="py-2 px-3 text-right tabular-nums text-slate-600">
-                            {group.expenseCost > 0 ? formatCurrency(group.expenseCost) : '–'}
-                          </td>
-                          <td className="py-2 px-3 text-right tabular-nums text-green-700">
-                            {group.totalPayments > 0 ? formatCurrency(group.totalPayments) : '–'}
-                          </td>
-                          <td className={`py-2 px-3 text-right tabular-nums font-semibold ${group.labourBalance > 0 ? 'text-red-600' : group.labourBalance < 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                            {group.labourBalance === 0 ? '–' : group.labourBalance < 0
-                              ? `${formatCurrency(Math.abs(group.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                              : formatCurrency(group.labourBalance)
-                            }
-                          </td>
-                          <td className={`py-2 px-3 text-right tabular-nums font-semibold ${group.expenseBalance > 0 ? 'text-red-600' : group.expenseBalance < 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                            {group.expenseBalance === 0 ? '–' : group.expenseBalance < 0
-                              ? `${formatCurrency(Math.abs(group.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                              : formatCurrency(group.expenseBalance)
-                            }
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
-                      <td className="py-2 px-3 text-slate-800">{isMarathi ? 'एकूण' : 'TOTAL'}</td>
-                      <td className="py-2 px-3 text-right tabular-nums">
-                        {grandTotals.openingBalance !== 0 ? (
-                          <span className={grandTotals.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}>
-                            {grandTotals.openingBalance < 0
-                              ? `${formatCurrency(Math.abs(grandTotals.openingBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                              : formatCurrency(grandTotals.openingBalance)
-                            }
-                          </span>
-                        ) : '–'}
-                      </td>
-                      <td className="py-2 px-3 text-right tabular-nums text-slate-800">
-                        {grandTotals.labourCost > 0 ? formatCurrency(grandTotals.labourCost) : '–'}
-                      </td>
-                      <td className="py-2 px-3 text-right tabular-nums text-slate-800">
-                        {grandTotals.expenseCost > 0 ? formatCurrency(grandTotals.expenseCost) : '–'}
-                      </td>
-                      <td className="py-2 px-3 text-right tabular-nums text-green-700">
-                        {grandTotals.totalPayments > 0 ? formatCurrency(grandTotals.totalPayments) : '–'}
-                      </td>
-                      <td className={`py-2 px-3 text-right tabular-nums font-bold ${
-                        grandTotals.labourBalance > 0 ? 'text-red-700' : grandTotals.labourBalance < 0 ? 'text-green-700' : 'text-slate-400'
-                      }`}>
-                        {grandTotals.labourBalance === 0 ? '–' : grandTotals.labourBalance < 0
-                          ? `${formatCurrency(Math.abs(grandTotals.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                          : formatCurrency(grandTotals.labourBalance)
-                        }
-                      </td>
-                      <td className={`py-2 px-3 text-right tabular-nums font-bold ${
-                        grandTotals.expenseBalance > 0 ? 'text-red-700' : grandTotals.expenseBalance < 0 ? 'text-green-700' : 'text-slate-400'
-                      }`}>
-                        {grandTotals.expenseBalance === 0 ? '–' : grandTotals.expenseBalance < 0
-                          ? `${formatCurrency(Math.abs(grandTotals.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                          : formatCurrency(grandTotals.expenseBalance)
-                        }
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                {grandTotals.labourBalance !== 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-blue-800">
-                      {isMarathi ? 'मजूरांना देणे' : 'Pay to Workers'}
-                    </span>
-                    <span className={`text-base font-bold ${grandTotals.labourBalance > 0 ? 'text-red-700' : 'text-green-700'}`}>
-                      {grandTotals.labourBalance < 0
-                        ? `${formatCurrency(Math.abs(grandTotals.labourBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                        : formatCurrency(grandTotals.labourBalance)
-                      }
-                    </span>
-                  </div>
-                )}
-                {grandTotals.expenseBalance !== 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-amber-800">
-                      {isMarathi ? 'मालकाकडून वसूल' : 'Settle with Owner'}
-                    </span>
-                    <span className={`text-base font-bold ${grandTotals.expenseBalance > 0 ? 'text-red-700' : 'text-green-700'}`}>
-                      {grandTotals.expenseBalance < 0
-                        ? `${formatCurrency(Math.abs(grandTotals.expenseBalance))} ${isMarathi ? 'जमा' : 'Cr'}`
-                        : formatCurrency(grandTotals.expenseBalance)
-                      }
-                    </span>
-                  </div>
-                )}
-                {grandTotals.labourBalance === 0 && grandTotals.expenseBalance === 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-800">
-                      {isMarathi ? 'सर्व पेमेंट पूर्ण' : 'All Payments Clear'}
-                    </span>
-                    <span className="text-lg font-bold text-green-700">{'\u2713'}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </>
+        <AccountStatement
+          balanceReport={balanceReport}
+          labourCostData={labourCostData}
+          expenseData={expenseData}
+          paymentData={paymentData}
+          printTitle={isMarathi ? 'तहकूब विवरण' : 'Settlement Statement'}
+          printSubtitle={`${isMarathi && selectedPeriod.marathiName ? selectedPeriod.marathiName : selectedPeriod.name} — ${formatDateRange(selectedPeriod)}`}
+          noDataMessage={isMarathi ? 'या कालावधीसाठी कोणताही डेटा नाही' : 'No data for this period'}
+          isMarathi={isMarathi}
+        />
       )}
     </div>
   );

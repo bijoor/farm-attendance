@@ -101,13 +101,17 @@ function mergeArray(localArr = [], remoteArr = [], idField = 'id') {
 
   for (const item of remoteArr) {
     const existing = map.get(item[idField]);
+    const remoteTime = getItemTimestamp(item);
     if (!existing) {
-      map.set(item[idField], { ...item });
+      // New item from client — only accept if it has a timestamp
+      // Items without modifiedAt are stale/legacy data from unupdated clients
+      if (remoteTime > 0) {
+        map.set(item[idField], { ...item });
+      }
     } else {
-      // Compare timestamps - latest wins (including deletedAt)
+      // Existing item — latest timestamp wins
       const localTime = getItemTimestamp(existing);
-      const remoteTime = getItemTimestamp(item);
-      if (remoteTime >= localTime) {
+      if (remoteTime > localTime) {
         map.set(item[idField], { ...item });
       }
     }

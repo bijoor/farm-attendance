@@ -9,7 +9,7 @@ import Groups from './pages/Groups';
 import Areas from './pages/Areas';
 import Activities from './pages/Activities';
 import GroupAttendance from './pages/GroupAttendance';
-import Print from './pages/Print';
+
 import Reports from './pages/Reports';
 import Accounts from './pages/Accounts';
 import Settings from './pages/Settings';
@@ -31,7 +31,7 @@ function App() {
           <Route element={<AttendanceLayout />}>
             <Route path="attendance" element={<Navigate to="/" replace />} />
             <Route path="attendance/:groupId" element={<GroupAttendance />} />
-            <Route path="print" element={<Print />} />
+
             <Route path="accounts" element={<Accounts />} />
             <Route path="expenses" element={<FarmExpenses />} />
             <Route path="settlements" element={<Settlements />} />
